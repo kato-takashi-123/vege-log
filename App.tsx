@@ -1,8 +1,8 @@
 
 
 import React, { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
-import { CultivationRecord, WorkType, ObservationStatus, PackageInfo, CropStage, WeatherInfo, PestInfo, VegetableInfo } from './types';
-import { getDailyQuote, getVegetableInfo, searchPestInfo, extractTextFromImage, analyzeSeedPackage, searchCommonPestsForCrop, searchRecipes, generateRecipeImage, AiSearchResult, searchGardeningTerm, getWeatherInfo, ApiRateLimitError } from './services/geminiService';
+import { CultivationRecord, WorkType, ObservationStatus, PackageInfo, CropStage, WeatherInfo, PestInfo, VegetableInfo, PlantDiagnosis } from './types';
+import { getDailyQuote, getVegetableInfo, searchPestInfo, extractTextFromImage, analyzeSeedPackage, searchCommonPestsForCrop, searchRecipes, generateRecipeImage, AiSearchResult, searchGardeningTerm, getWeatherInfo, ApiRateLimitError, diagnosePlantHealth } from './services/geminiService';
 import * as GoogleDriveService from './services/googleDriveService';
 import {
   SeedingIcon, PlantingIcon, FertilizingIcon, HarvestingIcon, PestControlIcon, WateringIcon, SeedlingCareIcon,
@@ -10,7 +10,7 @@ import {
   HomeIcon, ToolsIcon, VegetableSearchIcon, PestSearchIcon, RecipeIcon, MailIcon, MicrophoneIcon, ImageIcon, ChevronLeftIcon, ChevronRightIcon,
   HamburgerIcon, CloseIcon, SettingsIcon, TrashIcon, OpenAiIcon, RefreshIcon, RootTreatmentIcon, DiggingUpIcon, GerminationIcon, TrueLeavesIcon, PollinationIcon,
   DictionaryIcon, WeatherIcon, PaperPlaneIcon, SaveIcon, LogoutIcon, MoundIcon, VegetableBasketIcon, GoogleDriveIcon, CloudUploadIcon, CloudDownloadIcon, SyncIcon, FileImportIcon,
-  CloudIcon
+  CloudIcon, ObservationIcon
 } from './components/Icons';
 
 
@@ -46,7 +46,7 @@ const FERTILIZERS = {
   'M-Plus-2': { name: 'TOMATEC M-Plus 2', component: 'カルシウム、微量要素', usage: '品質向上、病害耐性強化' },
 };
 
-const CULTIVATION_AREAS = [
+const CULTIVATION_LANES = [
   '①-1', '①-2', '②-1', '②-2', '③-1', '③-2',
   '④-1', '④-2', '⑤-1', '⑤-2', '⑥-1', '⑥-2'
 ];
@@ -80,6 +80,7 @@ type AppSettings = {
   lastSyncDate?: string;
   cloudProvider?: 'google' | 'icloud';
   syncMode: 'auto' | 'manual';
+  weatherPrefecture: string;
 };
 
 const SETTINGS_KEY = 'veggieLogSettings';
@@ -102,10 +103,6 @@ type RecordPageHandle = {
   getRecordData: () => CultivationRecord;
   validate: () => string;
   handleSubmit: () => void;
-};
-
-type SettingsPageHandle = {
-  save: () => void;
 };
 
 // #endregion
@@ -258,7 +255,7 @@ const useVoiceRecognition = ({ onResult }: { onResult: (text: string) => void })
 
 const exportRecordsToCsv = (records: CultivationRecord[]): string => {
     const headers = [
-        'ID', '日付', '作物名', '栽培エリア', '作業種類', '作物の状況', 
+        'ID', '日付', '作物名', '栽培レーン', '作業種類', '作物の状況', 
         '観察記録', '病害虫詳細', 'メモ',
     ];
 
@@ -271,7 +268,7 @@ const exportRecordsToCsv = (records: CultivationRecord[]): string => {
             id: r.id,
             date: r.date,
             cropName: r.cropName,
-            cultivationArea: r.cultivationArea,
+            cultivationLane: r.cultivationLane,
             workTypes: r.workTypes?.map(wt => WORK_TYPE_DETAILS[wt]?.label).join(', ') || '',
             cropStages: r.cropStages?.map(cs => CROP_STAGE_DETAILS[cs]?.label).join(', ') || '',
             observationStatus: r.observationStatus?.map(os => OBSERVATION_STATUS_DETAILS[os]?.label).join(', ') || '',
@@ -284,6 +281,55 @@ const exportRecordsToCsv = (records: CultivationRecord[]): string => {
     return [headers.join(','), ...rows].join('\n');
 };
 
+const getWeatherIllustration = (weather: string, className: string = "w-full h-full"): React.ReactElement => {
+    const simplified = (() => {
+        if (weather.includes("雪")) return "snow";
+        if (weather.includes("雷")) return "thunder";
+        if (weather.includes("雨")) return "rain";
+        if (weather.includes("晴") && weather.includes("曇")) return "cloudy-sun";
+        if (weather.includes("曇") || weather.includes("霧")) return "cloudy";
+        if (weather.includes("晴")) return "sunny";
+        return "cloudy"; // Default
+    })();
+
+    switch (simplified) {
+        case "sunny":
+            return (
+                <svg viewBox="0 0 64 64" className={className}>
+                    <path d="M41 32c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z" fill="#facc15"/>
+                    <path d="M32 15V9m0 46v-6m15-17h6m-46 0h6m10.61-10.61l4.24-4.24M17.15 46.85l4.24-4.24m25.46 0l-4.24-4.24m-25.46-25.46l4.24 4.24" fill="none" stroke="#facc15" strokeMiterlimit="10" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+            );
+        case "rain":
+            return (
+                <svg viewBox="0 0 64 64" className={className}>
+                    <path d="M47 43c0 5.52-4.48 10-10 10h-2c-5.52 0-10-4.48-10-10 0-4.75 3.31-8.72 7.76-9.72.63-5.22 5.14-9.28 10.5-9.28 5.8 0 10.5 4.7 10.5 10.5v1.09c3.34.82 5.74 3.86 5.74 7.41z" fill="#9ca3af"/>
+                    <path d="M30 46v6m6-7v6m-12 1v6m6-7v6" fill="none" stroke="#60a5fa" strokeMiterlimit="10" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+            );
+        case "cloudy-sun":
+             return (
+                <svg viewBox="0 0 64 64" className={className}>
+                     <path d="M47 43c0 5.52-4.48 10-10 10h-2c-5.52 0-10-4.48-10-10 0-4.75 3.31-8.72 7.76-9.72.63-5.22 5.14-9.28 10.5-9.28 4.25 0 7.91 2.53 9.49 6.13" fill="#9ca3af"/>
+                     <path d="M30.94 18.05a9 9 0 1112.98 10.02" fill="#facc15"/>
+                </svg>
+            );
+        case "snow":
+             return (
+                <svg viewBox="0 0 64 64" className={className}>
+                    <path d="M47 43c0 5.52-4.48 10-10 10h-2c-5.52 0-10-4.48-10-10 0-4.75 3.31-8.72 7.76-9.72.63-5.22 5.14-9.28 10.5-9.28 5.8 0 10.5 4.7 10.5 10.5v1.09c3.34.82 5.74 3.86 5.74 7.41z" fill="#9ca3af"/>
+                    <path d="M30 46v6m0-3h-3m3 0h3m-3-10v6m0-3h-3m3 0h3m6-6v6m0-3h-3m3 0h3m-3-10v6m0-3h-3m3 0h3" stroke="#e5e7eb" strokeMiterlimit="10" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+             );
+        default: // cloudy
+             return (
+                <svg viewBox="0 0 64 64" className={className}>
+                    <path d="M47 43c0 5.52-4.48 10-10 10h-2c-5.52 0-10-4.48-10-10 0-4.75 3.31-8.72 7.76-9.72.63-5.22 5.14-9.28 10.5-9.28 5.8 0 10.5 4.7 10.5 10.5v1.09c3.34.82 5.74 3.86 5.74 7.41z" fill="#9ca3af"/>
+                    <path d="M29.5 31.5c-4.42 0-8-3.58-8-8s3.58-8 8-8a8.34 8.34 0 015.55 2.12" fill="#d1d5db"/>
+                </svg>
+            );
+    }
+};
 
 // #endregion
 
@@ -471,6 +517,120 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   );
 };
 
+const CalendarModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onSelectDate: (date: Date) => void;
+  initialDate: Date;
+  startOfWeek: 'sunday' | 'monday';
+}> = ({ isOpen, onClose, onSelectDate, initialDate, startOfWeek }) => {
+  if (!isOpen) return null;
+
+  const [currentDisplayDate, setCurrentDisplayDate] = useState(initialDate);
+
+  const changeMonth = (amount: number) => {
+    setCurrentDisplayDate(prev => {
+      const newDate = new Date(prev.getFullYear(), prev.getMonth() + amount, 1);
+      return newDate;
+    });
+  };
+  
+  const startOfMonth = new Date(currentDisplayDate.getFullYear(), currentDisplayDate.getMonth(), 1);
+  const endOfMonth = new Date(currentDisplayDate.getFullYear(), currentDisplayDate.getMonth() + 1, 0);
+  const numDays = endOfMonth.getDate();
+  
+  let firstDayOfMonth = startOfMonth.getDay(); // Sunday is 0
+  if (startOfWeek === 'monday') {
+      firstDayOfMonth = (firstDayOfMonth === 0) ? 6 : firstDayOfMonth - 1; // Monday is 0
+  }
+
+  const weekHeaderLabels = startOfWeek === 'sunday' 
+    ? ['日', '月', '火', '水', '木', '金', '土']
+    : ['月', '火', '水', '木', '金', '土', '日'];
+    
+  const weekHeaderColors = startOfWeek === 'sunday'
+    ? ['text-red-500', '', '', '', '', '', 'text-blue-500']
+    : ['', '', '', '', '', 'text-blue-500', 'text-red-500'];
+
+  const daysInGrid: React.ReactNode[] = [];
+  for (let i = 0; i < firstDayOfMonth; i++) {
+    daysInGrid.push(<div key={`blank-${i}`} className="h-10"></div>);
+  }
+
+  for (let day = 1; day <= numDays; day++) {
+    const date = new Date(currentDisplayDate.getFullYear(), currentDisplayDate.getMonth(), day);
+    const today = new Date();
+    const isToday = date.toDateString() === today.toDateString();
+    const isSelected = initialDate.toDateString() === date.toDateString();
+    const { isHoliday, isSaturday, isSunday } = getDayInfo(date);
+
+    let dayColor = '';
+    if (isHoliday) dayColor = 'text-pink-600';
+    else if (isSunday) dayColor = 'text-red-500';
+    else if (isSaturday) dayColor = 'text-blue-500';
+
+    daysInGrid.push(
+      <div key={day} className="h-10 flex items-center justify-center">
+        <button
+          onClick={() => onSelectDate(date)}
+          className={`w-9 h-9 flex items-center justify-center rounded-full text-sm transition-colors ${
+            isSelected ? 'bg-green-600 text-white font-bold' : isToday ? 'ring-2 ring-green-500' : 'hover:bg-green-100'
+          }`}
+        >
+          <span className={`${isSelected ? 'text-white' : dayColor}`}>{day}</span>
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl p-4 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-2">
+          <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-100"><ChevronLeftIcon className="h-6 w-6" /></button>
+          <h2 className="text-lg font-bold text-gray-800">{currentDisplayDate.getFullYear()}年 {currentDisplayDate.getMonth() + 1}月</h2>
+          <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-100"><ChevronRightIcon className="h-6 w-6" /></button>
+        </div>
+        <div className="grid grid-cols-7 text-center">
+          {weekHeaderLabels.map((day, index) => (
+            <div key={day} className={`font-semibold text-sm py-2 ${weekHeaderColors[index]}`}>
+              {day}
+            </div>
+          ))}
+          {daysInGrid}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const CameraOptionModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onTakePhoto: () => void;
+  onAiDiagnose: () => void;
+}> = ({ isOpen, onClose, onTakePhoto, onAiDiagnose }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xs" onClick={e => e.stopPropagation()}>
+        <h3 className="text-lg font-bold text-gray-900 text-center mb-4">カメラ</h3>
+        <div className="flex justify-around gap-4">
+          <button onClick={onTakePhoto} className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-100 transition-colors w-1/2">
+            <CameraIcon className="h-8 w-8 text-gray-700" />
+            <span className="font-semibold text-gray-700">写真を撮る</span>
+          </button>
+          <button onClick={onAiDiagnose} className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-100 transition-colors w-1/2">
+            <ObservationIcon className="h-8 w-8 text-gray-700" />
+            <span className="font-semibold text-gray-700">AI診断</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 type PageProps = {
   setPage: (page: string, params?: any) => void;
@@ -520,7 +680,7 @@ const HamburgerMenu: React.FC<{
   };
   
   const getActiveTab = (page: string) => {
-    if (['CALCULATOR', 'RECIPE_SEARCH', 'VEGETABLE_SEARCH', 'PEST_SEARCH', 'TERM_SEARCH', 'WEATHER'].includes(page)) return 'TOOLS';
+    if (['CALCULATOR', 'RECIPE_SEARCH', 'VEGETABLE_SEARCH', 'PEST_SEARCH', 'TERM_SEARCH', 'WEATHER', 'PLANT_DIAGNOSIS'].includes(page)) return 'TOOLS';
     if (menuItems.some(item => item.name === page)) return page;
     return 'DASHBOARD'; // Fallback
   };
@@ -772,12 +932,15 @@ const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
 
 const Dashboard: React.FC<{ 
   records: CultivationRecord[];
-  onAreaClick: (area: string) => void;
+  onLaneClick: (lane: string) => void;
   settings: AppSettings;
   onSettingsChange: (settings: AppSettings) => void;
   handleApiCall: ApiCallHandler;
-}> = ({ records, onAreaClick, settings, onSettingsChange, handleApiCall }) => {
+}> = ({ records, onLaneClick, settings, onSettingsChange, handleApiCall }) => {
   const [tip, setTip] = useState('今日の一言を読み込み中...');
+  
+  const today = new Date();
+  const formattedDate = `${today.toLocaleDateString()} (${['日', '月', '火', '水', '木', '金', '土'][today.getDay()]})`;
 
   useEffect(() => {
     if (settings.enableAiFeatures) {
@@ -802,13 +965,13 @@ const Dashboard: React.FC<{
   }, [settings.enableAiFeatures, settings.selectedModel, handleApiCall]);
 
 
-  const areaStatus = useMemo(() => {
+  const laneStatus = useMemo(() => {
     const status: { [key: string]: CultivationRecord } = {};
     const sorted = [...records].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     
     for (const record of sorted) {
-      if (record.cultivationArea && !status[record.cultivationArea]) {
-        status[record.cultivationArea] = record;
+      if (record.cultivationLane && !status[record.cultivationLane]) {
+        status[record.cultivationLane] = record;
       }
     }
     return status;
@@ -825,21 +988,24 @@ const Dashboard: React.FC<{
       </div>
 
       <div>
-        <h2 className="text-xl font-bold text-gray-800 mb-4">栽培エリアの状況</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-gray-800">栽培レーンの状況</h2>
+          <span className="text-sm font-medium text-gray-500">{formattedDate}</span>
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          {CULTIVATION_AREAS.map((area, index) => {
-            const current = areaStatus[area];
+          {CULTIVATION_LANES.map((lane, index) => {
+            const current = laneStatus[lane];
             const cardColor = PASTEL_COLORS[index % PASTEL_COLORS.length];
             
             return (
               <button
-                key={area}
-                onClick={() => onAreaClick(area)}
+                key={lane}
+                onClick={() => onLaneClick(lane)}
                 className={`${cardColor} rounded-xl shadow-md h-auto min-h-[7rem] w-full hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transform transition-transform duration-200 overflow-hidden flex items-stretch`}
               >
                 {/* Left Part: Info */}
                 <div className="w-1/2 relative p-2 flex flex-col justify-center">
-                    <p className="absolute top-2 left-2 font-semibold text-sm text-gray-700">{area}</p>
+                    <p className="absolute top-2 left-2 font-semibold text-sm text-gray-700">{lane}</p>
                     <div className="text-center px-1">
                         {current ? (
                             <p className="font-bold text-base leading-tight text-green-800 whitespace-normal break-words">{current.cropName}</p>
@@ -905,7 +1071,7 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
   const [recordId, setRecordId] = useState(initialData?.id || new Date().toISOString());
   
   const [cropName, setCropName] = useState(initialData?.cropName || '');
-  const [cultivationArea, setCultivationArea] = useState(initialData?.cultivationArea || CULTIVATION_AREAS[0]);
+  const [cultivationLane, setCultivationLane] = useState(initialData?.cultivationLane || CULTIVATION_LANES[0]);
   const [workTypes, setWorkTypes] = useState<WorkType[]>(initialData?.workTypes || []);
   const [cropStages, setCropStages] = useState<CropStage[]>(initialData?.cropStages || []);
   const [observationStatus, setObservationStatus] = useState<ObservationStatus[]>(initialData?.observationStatus || []);
@@ -917,6 +1083,7 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
   const [seedPackageBack, setSeedPackageBack] = useState<string | null>(initialData?.seedPackagePhotoBack || null);
   const [error, setError] = useState('');
   const [recordDate, setRecordDate] = useState(initialData?.date || toISODateString(new Date()));
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isOcrLoading, setIsOcrLoading] = useState<string | null>(null);
   const [imageSourceModal, setImageSourceModal] = useState<{ open: boolean; side: 'front' | 'back' } | null>(null);
 
@@ -935,6 +1102,7 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
   const { isListening: isListeningMemo, startListening: startListeningMemo } = useVoiceRecognition({ onResult: setMemo });
   const { isListening: isListeningPest, startListening: startListeningPest } = useVoiceRecognition({ onResult: setCustomPest });
 
+  const recordDateObj = useMemo(() => parseDateString(recordDate), [recordDate]);
 
   const initialFormStateRef = useRef<any>(null);
   
@@ -943,7 +1111,7 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
   useEffect(() => {
     const currentState = JSON.stringify({
       cropName: initialData?.cropName || '',
-      cultivationArea: initialData?.cultivationArea || CULTIVATION_AREAS[0],
+      cultivationLane: initialData?.cultivationLane || CULTIVATION_LANES[0],
       workTypes: initialData?.workTypes || [],
       cropStages: initialData?.cropStages || [],
       observationStatus: initialData?.observationStatus || [],
@@ -961,9 +1129,9 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
 
   const isDirty = useMemo(() => {
     if (!initialFormStateRef.current) return false;
-    const currentState = JSON.stringify({ cropName, cultivationArea, workTypes, cropStages, observationStatus, pestDetails, memo, photo, seedPackageFront, seedPackageBack, recordDate, packageInfo, pestInfo });
+    const currentState = JSON.stringify({ cropName, cultivationLane, workTypes, cropStages, observationStatus, pestDetails, memo, photo, seedPackageFront, seedPackageBack, recordDate, packageInfo, pestInfo });
     return initialFormStateRef.current !== currentState;
-  }, [cropName, cultivationArea, workTypes, cropStages, observationStatus, pestDetails, memo, photo, seedPackageFront, seedPackageBack, recordDate, packageInfo, pestInfo]);
+  }, [cropName, cultivationLane, workTypes, cropStages, observationStatus, pestDetails, memo, photo, seedPackageFront, seedPackageBack, recordDate, packageInfo, pestInfo]);
 
   useEffect(() => {
     onDirtyChange(isDirty);
@@ -1164,7 +1332,7 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
   const getRecordData = (): CultivationRecord => ({
     id: recordId,
     cropName,
-    cultivationArea,
+    cultivationLane,
     workTypes,
     cropStages,
     observationStatus,
@@ -1203,18 +1371,33 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
         onClose={() => setImageSourceModal(null)}
         onSelect={handleImageSourceSelect}
     />
+    <CalendarModal
+      isOpen={isCalendarOpen}
+      onClose={() => setIsCalendarOpen(false)}
+      onSelectDate={(date) => {
+        setRecordDate(toISODateString(date));
+        setIsCalendarOpen(false);
+      }}
+      initialDate={recordDateObj}
+      startOfWeek={settings.startOfWeek}
+    />
     <div className="p-4 space-y-6">
       <div className="bg-yellow-50 p-6 rounded-xl shadow-md">
         <div className="space-y-4">
           <div className="flex gap-4">
             <div className="w-1/2">
               <label className="text-sm font-medium text-gray-700">作業日</label>
-              <input type="date" value={recordDate} onChange={e => setRecordDate(e.target.value)} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
+              <button 
+                onClick={() => setIsCalendarOpen(true)} 
+                className="mt-1 w-full p-3 border border-gray-300 rounded-lg bg-white text-left text-base"
+              >
+                {recordDate} ({['日', '月', '火', '水', '木', '金', '土'][recordDateObj.getDay()]})
+              </button>
             </div>
             <div className="w-1/2">
-              <label className="text-sm font-medium text-gray-700">栽培エリア</label>
-              <select value={cultivationArea} onChange={e => setCultivationArea(e.target.value)} className="mt-1 w-full p-3 border border-gray-300 rounded-lg bg-white">
-                {CULTIVATION_AREAS.map(area => <option key={area} value={area}>{area}</option>)}
+              <label className="text-sm font-medium text-gray-700">栽培レーン</label>
+              <select value={cultivationLane} onChange={e => setCultivationLane(e.target.value)} className="mt-1 w-full p-3 border border-gray-300 rounded-lg bg-white">
+                {CULTIVATION_LANES.map(lane => <option key={lane} value={lane}>{lane}</option>)}
               </select>
             </div>
           </div>
@@ -1519,7 +1702,7 @@ const RecordCard: React.FC<{ record: CultivationRecord; onClick: () => void }> =
     <button onClick={onClick} className="w-full bg-yellow-50 rounded-xl shadow-md overflow-hidden fade-in flex text-left hover:shadow-lg transition-shadow">
         <div className="w-2/3 p-4 flex flex-col justify-between">
           <div>
-            <h3 className="text-lg font-bold text-gray-800">{record.cultivationArea} 【{record.cropName}】</h3>
+            <h3 className="text-lg font-bold text-gray-800">{record.cultivationLane} 【{record.cropName}】</h3>
             <p className="text-sm text-gray-500 mt-1">{formattedDate}</p>
           
             <div className="space-y-2 mt-3 text-xs">
@@ -1614,8 +1797,8 @@ const CalendarHistoryPage: React.FC<{
     const dateKey = toISODateString(selectedDate);
     // Filter by crop if one is selected, otherwise use all records for that date
     const dayRecords = (recordsByDate[dateKey] || []).filter(r => !filterCrop || r.cropName === filterCrop);
-    // Sort by cultivation area
-    return dayRecords.sort((a, b) => a.cultivationArea.localeCompare(b.cultivationArea, undefined, { numeric: true }));
+    // Sort by cultivation lane
+    return dayRecords.sort((a, b) => a.cultivationLane.localeCompare(b.cultivationLane, undefined, { numeric: true }));
   }, [selectedDate, recordsByDate, filterCrop]);
 
   const filteredRecordsList = useMemo(() => {
@@ -1770,6 +1953,7 @@ const ToolsPage: React.FC<{ setPage: (page: string) => void }> = ({ setPage }) =
     { name: 'レシピ検索', icon: RecipeIcon, page: 'RECIPE_SEARCH' },
     { name: '野菜の育て方検索', icon: VegetableSearchIcon, page: 'VEGETABLE_SEARCH' },
     { name: '病害虫・症状検索', icon: PestSearchIcon, page: 'PEST_SEARCH' },
+    { name: 'AI植物診断', icon: ObservationIcon, page: 'PLANT_DIAGNOSIS' },
     { name: '園芸用語辞典', icon: DictionaryIcon, page: 'TERM_SEARCH' },
     { name: '天気・暑さ指数', icon: WeatherIcon, page: 'WEATHER' },
   ];
@@ -2151,13 +2335,14 @@ const TermSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handl
   );
 };
 
-const WeatherChart: React.FC<{ hourlyData: WeatherInfo['hourly'] }> = ({ hourlyData }) => {
-    const CHART_HEIGHT = 220;
+const WeatherChart: React.FC<{ hourlyData: WeatherInfo['hourly']; startDate: string }> = ({ hourlyData, startDate }) => {
+    const CHART_HEIGHT = 240;
     const ITEM_WIDTH = 65;
-    const TEMP_AREA_HEIGHT = 100;
-    const PRECIP_AREA_HEIGHT = 50;
-    const PADDING_TOP = 25;
-    const PADDING_BOTTOM = 55;
+    const TEMP_AREA_HEIGHT = 80;
+    const ICON_AREA_HEIGHT = 50;
+    const PRECIP_AREA_HEIGHT = 40;
+    const PADDING_TOP = 20;
+    const PADDING_BOTTOM = 50;
 
     if (!hourlyData || hourlyData.length === 0) return null;
 
@@ -2167,21 +2352,37 @@ const WeatherChart: React.FC<{ hourlyData: WeatherInfo['hourly'] }> = ({ hourlyD
     const precips = hourlyData.map(h => h.precipitation);
     const minTemp = Math.min(...temps) - 2;
     const maxTemp = Math.max(...temps) + 2;
-    const maxPrecip = Math.max(...precips, 1); // Avoid division by zero, ensure a scale exists
+    const maxPrecip = Math.max(...precips, 1);
 
-    const tempToY = (temp: number) => {
-        return PADDING_TOP + TEMP_AREA_HEIGHT - ((temp - minTemp) / (maxTemp - minTemp)) * TEMP_AREA_HEIGHT;
-    };
+    const tempToY = (temp: number) => PADDING_TOP + TEMP_AREA_HEIGHT - ((temp - minTemp) / (maxTemp - minTemp)) * TEMP_AREA_HEIGHT;
+    const precipToHeight = (precip: number) => (precip / maxPrecip) * PRECIP_AREA_HEIGHT;
+    
+    const dates = useMemo(() => {
+        const startingDate = parseDateString(startDate);
+        let lastHour = -1;
+        let dayOffset = 0;
 
-    const precipToHeight = (precip: number) => {
-        return (precip / maxPrecip) * PRECIP_AREA_HEIGHT;
-    };
+        return hourlyData.map(h => {
+            const currentHour = parseInt(h.time.split(':')[0], 10);
+            if (currentHour < lastHour) {
+                dayOffset++;
+            }
+            lastHour = currentHour;
+            
+            const currentDate = new Date(startingDate);
+            currentDate.setDate(startingDate.getDate() + dayOffset);
+            
+            return `${currentDate.getMonth() + 1}/${currentDate.getDate()}`;
+        });
+    }, [hourlyData, startDate]);
     
     const linePath = hourlyData.map((h, i) => {
         const x = i * ITEM_WIDTH + ITEM_WIDTH / 2;
         const y = tempToY(h.temperature);
         return `${i === 0 ? 'M' : 'L'} ${x},${y}`;
     }).join(' ');
+
+    const PRECIP_Y_BASE = PADDING_TOP + TEMP_AREA_HEIGHT + ICON_AREA_HEIGHT + PRECIP_AREA_HEIGHT;
 
     return (
         <div className="overflow-x-auto bg-gray-50 p-2 rounded-lg -mx-2">
@@ -2190,31 +2391,28 @@ const WeatherChart: React.FC<{ hourlyData: WeatherInfo['hourly'] }> = ({ hourlyD
                 {hourlyData.map((h, i) => {
                     const barHeight = precipToHeight(h.precipitation);
                     const x = i * ITEM_WIDTH + (ITEM_WIDTH - 20) / 2;
-                    const y = PADDING_TOP + TEMP_AREA_HEIGHT + 10;
+                    const y = PRECIP_Y_BASE - barHeight;
                     return (
                         <g key={`precip-${i}`}>
-                            <rect
-                                x={x}
-                                y={y}
-                                width={20}
-                                height={barHeight}
-                                fill="#60a5fa" // blue-400
-                                rx="4"
-                                ry="4"
-                            />
-                            {h.precipitation > 0 && (
-                                <text
-                                    x={x + 10}
-                                    y={y + barHeight + 14}
-                                    textAnchor="middle"
-                                    fontSize="11"
-                                    fill="#4b5563" // gray-600
-                                >
+                            <rect x={x} y={y} width={20} height={barHeight} fill="#60a5fa" rx="4" ry="4"/>
+                            {h.precipitation > 0.1 && (
+                                <text x={x + 10} y={y - 4} textAnchor="middle" fontSize="10" fill="#4b5563">
                                     {h.precipitation}mm
                                 </text>
                             )}
                         </g>
                     );
+                })}
+
+                {/* Weather Icons */}
+                {hourlyData.map((h, i) => {
+                     const x = i * ITEM_WIDTH + (ITEM_WIDTH - 40) / 2;
+                     const y = PADDING_TOP + TEMP_AREA_HEIGHT;
+                     return (
+                         <foreignObject key={`icon-${i}`} x={x} y={y} width="40" height="40">
+                             {getWeatherIllustration(h.weather, "w-10 h-10")}
+                         </foreignObject>
+                     );
                 })}
 
                 {/* Temperature Line */}
@@ -2227,42 +2425,22 @@ const WeatherChart: React.FC<{ hourlyData: WeatherInfo['hourly'] }> = ({ hourlyD
                     return (
                         <g key={`point-${i}`}>
                             <circle cx={x} cy={y} r="4" fill="#f97316" stroke="white" strokeWidth="2"/>
-                            <text
-                                x={x}
-                                y={y - 10}
-                                textAnchor="middle"
-                                fontWeight="bold"
-                                fontSize="14"
-                                fill="#4b5563"
-                            >
+                            <text x={x} y={y - 10} textAnchor="middle" fontWeight="bold" fontSize="14" fill="#4b5563">
                                 {Math.round(h.temperature)}°
                             </text>
                         </g>
                     );
                 })}
 
-                {/* Time & Weather Labels at bottom */}
+                {/* Date & Time Labels at bottom */}
                 {hourlyData.map((h, i) => {
                     const x = i * ITEM_WIDTH + ITEM_WIDTH / 2;
                     return (
                         <g key={`time-${i}`}>
-                             <text
-                                x={x}
-                                y={CHART_HEIGHT - 25}
-                                textAnchor="middle"
-                                fontSize="12"
-                                fill="#4b5563"
-                            >
-                                {h.weather}
+                             <text x={x} y={CHART_HEIGHT - 25} textAnchor="middle" fontSize="12" fill="#4b5563">
+                                {dates[i]}
                             </text>
-                            <text
-                                x={x}
-                                y={CHART_HEIGHT - 8}
-                                textAnchor="middle"
-                                fontWeight="bold"
-                                fontSize="14"
-                                fill="#1f2937"
-                            >
+                            <text x={x} y={CHART_HEIGHT - 8} textAnchor="middle" fontWeight="bold" fontSize="14" fill="#1f2937">
                                 {h.time}
                             </text>
                         </g>
@@ -2277,38 +2455,14 @@ const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleAp
     const [weather, setWeather] = useState<WeatherInfo | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [locationMode, setLocationMode] = useState<'current' | 'prefecture'>('current');
-    const [selectedPrefecture, setSelectedPrefecture] = useState('');
 
     useEffect(() => {
-        const fetchWeatherByCoords = () => {
-            setIsLoading(true);
-            setError(null);
-            navigator.geolocation.getCurrentPosition(
-                async (position) => {
-                    try {
-                        const data = await handleApiCall(() => getWeatherInfo({ latitude: position.coords.latitude, longitude: position.coords.longitude }, settings.selectedModel));
-                        if (data) {
-                            setWeather(data);
-                        } else {
-                            setError("天気情報の取得を中止しました。");
-                        }
-                    } catch (e) {
-                        console.error("Failed to fetch weather", e);
-                        setError("天気情報の取得に失敗しました。");
-                    } finally {
-                        setIsLoading(false);
-                    }
-                },
-                (err) => {
-                    console.error("Geolocation error:", err);
-                    setError("位置情報が取得できませんでした。ブラウザの権限を確認してください。");
-                    setIsLoading(false);
-                }
-            );
-        };
-
         const fetchWeatherByName = async (name: string) => {
+            if (!name) {
+                setError("都道府県が設定されていません。設定ページで確認してください。");
+                setIsLoading(false);
+                return;
+            }
             setIsLoading(true);
             setError(null);
             setWeather(null);
@@ -2327,16 +2481,8 @@ const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleAp
             }
         };
 
-        if (locationMode === 'current') {
-            fetchWeatherByCoords();
-        } else if (locationMode === 'prefecture' && selectedPrefecture) {
-            fetchWeatherByName(selectedPrefecture);
-        } else {
-            setIsLoading(false);
-            setWeather(null);
-            setError(null);
-        }
-    }, [locationMode, selectedPrefecture, settings.selectedModel, handleApiCall]);
+        fetchWeatherByName(settings.weatherPrefecture);
+    }, [settings.weatherPrefecture, settings.selectedModel, handleApiCall]);
     
     const getWbgtColor = (wbgt: number) => {
       if (wbgt >= 31) return { bg: 'bg-red-600', text: 'text-white', label: '危険' };
@@ -2346,44 +2492,12 @@ const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleAp
       return { bg: 'bg-blue-500', text: 'text-white', label: 'ほぼ安全' };
     };
     
-    const loadingMessage = locationMode === 'current'
-      ? '現在地の天気を読み込み中...'
-      : (selectedPrefecture ? `「${selectedPrefecture}」の天気を読み込み中...` : '都道府県を選択してください。');
+    const loadingMessage = `「${settings.weatherPrefecture}」の天気を読み込み中...`;
 
     return (
         <div className="p-4 space-y-4">
-             <div className="bg-white p-4 rounded-xl shadow-md space-y-3">
-                <div className="flex rounded-md shadow-sm">
-                    <button
-                        onClick={() => setLocationMode('current')}
-                        className={`px-4 py-2 text-sm font-medium border rounded-l-md transition-colors w-1/2 ${locationMode === 'current' ? 'bg-green-600 text-white border-green-600 z-10' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
-                    >
-                        現在地
-                    </button>
-                    <button
-                        onClick={() => setLocationMode('prefecture')}
-                        className={`-ml-px px-4 py-2 text-sm font-medium border rounded-r-md transition-colors w-1/2 ${locationMode === 'prefecture' ? 'bg-green-600 text-white border-green-600 z-10' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
-                    >
-                        都道府県
-                    </button>
-                </div>
-                {locationMode === 'prefecture' && (
-                    <div className="fade-in">
-                        <select
-                            value={selectedPrefecture}
-                            onChange={e => setSelectedPrefecture(e.target.value)}
-                            className="w-full p-2 border border-gray-300 rounded-lg bg-white"
-                        >
-                            <option value="">都道府県を選択してください</option>
-                            {PREFECTURES.map(pref => <option key={pref} value={pref}>{pref}</option>)}
-                        </select>
-                    </div>
-                )}
-            </div>
-
             {isLoading && <div className="text-center p-8">{loadingMessage}</div>}
             {error && <div className="text-center p-8 text-red-600">{error}</div>}
-            {(!isLoading && !error && !weather) && <div className="text-center p-8 text-gray-500">{loadingMessage}</div>}
 
             {weather && (
               <div className="space-y-4 fade-in">
@@ -2395,9 +2509,14 @@ const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleAp
                         </div>
                         <AiModelSelector settings={settings} onSettingsChange={onSettingsChange}/>
                     </div>
-                    <div className="text-center my-4">
-                        <p className="text-6xl font-bold text-gray-800">{Math.round(weather.current.temperature)}°C</p>
-                        <p className="text-gray-600">湿度: {weather.current.humidity}%</p>
+                    <div className="flex items-center justify-center gap-4 my-4">
+                        <div className="w-20 h-20">
+                           {getWeatherIllustration(weather.current.weather, "w-full h-full")}
+                        </div>
+                        <div className="text-center">
+                            <p className="text-6xl font-bold text-gray-800">{Math.round(weather.current.temperature)}°C</p>
+                            <p className="text-gray-600">湿度: {weather.current.humidity}%</p>
+                        </div>
                     </div>
                     
                     {weather.current.wbgt != null && (() => {
@@ -2413,17 +2532,20 @@ const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleAp
 
                 <div className="bg-white p-4 rounded-xl shadow-md">
                     <h3 className="font-bold text-gray-800 mb-2">3時間ごとの予報</h3>
-                    <WeatherChart hourlyData={weather.hourly} />
+                    <WeatherChart hourlyData={weather.hourly} startDate={weather.weekly[0].date} />
                 </div>
 
                 <div className="bg-white p-4 rounded-xl shadow-md">
                     <h3 className="font-bold text-gray-800 mb-2">週間予報</h3>
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                         {weather.weekly.map((day, index) => (
-                            <div key={index} className="flex justify-between items-center text-sm p-1 rounded-md hover:bg-gray-50">
-                                <p className="font-semibold w-1/3">{`${day.date.substring(5).replace('-', '/')}(${day.day.charAt(0)})`}</p>
-                                <p className="w-1/3 text-center text-gray-600">{day.weather}</p>
-                                <p className="w-1/3 text-right">
+                            <div key={index} className="grid grid-cols-4 items-center text-sm p-1 rounded-md hover:bg-gray-50 gap-2">
+                                <p className="font-semibold">{`${day.date.substring(5).replace('-', '/')}(${day.day.charAt(0)})`}</p>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-7 h-7">{getWeatherIllustration(day.weather, "w-full h-full")}</div>
+                                </div>
+                                <p className="text-center text-gray-600">{day.weather}</p>
+                                <p className="text-right">
                                     <span className="font-bold text-red-500">{Math.round(day.temp_max)}°</span> / <span className="text-blue-500">{Math.round(day.temp_min)}°</span>
                                 </p>
                             </div>
@@ -2436,16 +2558,150 @@ const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleAp
     );
 };
 
+const PlantDiagnosisPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleApiCall }) => {
+  const [image, setImage] = useState<{ file: File, preview: string } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [result, setResult] = useState<PlantDiagnosis | null>(null);
+  const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImage({ file, preview: URL.createObjectURL(file) });
+      setResult(null); // Clear previous result
+    }
+    // Reset input value
+    e.target.value = '';
+  };
+
+  const handleDiagnose = useCallback(async () => {
+    if (!image) return;
+    setIsLoading(true);
+    setResult(null);
+    try {
+      const imagePart = await fileToGenerativePart(image.file);
+      const diagnosis = await handleApiCall(() => diagnosePlantHealth(settings.selectedModel, imagePart));
+      if (diagnosis) {
+        setResult(diagnosis);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("AI診断中にエラーが発生しました。");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [image, settings.selectedModel, handleApiCall]);
+
+  const handleSourceSelect = (source: 'camera' | 'gallery') => {
+      if (source === 'camera') {
+        cameraInputRef.current?.click();
+      } else {
+        galleryInputRef.current?.click();
+      }
+      setIsSourceModalOpen(false);
+  };
+  
+  const DiagnosisCard: React.FC<{ title: string; children: React.ReactNode; icon: React.FC<{className?: string}> }> = ({ title, children, icon: Icon }) => (
+      <div className="bg-white p-4 rounded-xl shadow-md">
+        <div className="flex items-center gap-3 mb-2">
+          <Icon className="h-6 w-6 text-green-600" />
+          <h3 className="text-lg font-bold text-green-800">{title}</h3>
+        </div>
+        <div className="space-y-2 text-sm text-gray-700 pl-9">{children}</div>
+      </div>
+  );
+
+  return (
+    <>
+      <ImageSourceModal
+          isOpen={isSourceModalOpen}
+          onClose={() => setIsSourceModalOpen(false)}
+          onSelect={handleSourceSelect}
+      />
+      <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={handleImageChange} className="hidden" />
+      <input type="file" accept="image/*" ref={galleryInputRef} onChange={handleImageChange} className="hidden" />
+      
+      <div className="p-4 space-y-4">
+        <div className="bg-white p-4 rounded-xl shadow-md space-y-3">
+          <div className="flex justify-between items-center">
+              <h3 className="font-semibold text-gray-800">AI植物診断</h3>
+              <AiModelSelector settings={settings} onSettingsChange={onSettingsChange} disabled={isLoading}/>
+          </div>
+          
+          <div 
+            onClick={() => setIsSourceModalOpen(true)}
+            className="w-full h-48 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50"
+          >
+            {image ? (
+              <img src={image.preview} alt="診断対象" className="h-full w-full object-contain rounded-lg p-1" />
+            ) : (
+              <>
+                <CameraIcon className="h-12 w-12 text-gray-400" />
+                <span className="mt-2 text-sm text-gray-600">タップして写真を選択</span>
+              </>
+            )}
+          </div>
+
+          <button 
+            onClick={handleDiagnose} 
+            disabled={isLoading || !image} 
+            className="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400 flex items-center justify-center gap-2"
+          >
+            {isLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <span>診断中...</span>
+              </>
+            ) : (
+              <>
+                <ObservationIcon className="h-5 w-5" />
+                <span>この植物を診断する</span>
+              </>
+            )}
+          </button>
+        </div>
+        
+        {result && (
+          <div className="space-y-4 fade-in">
+            <DiagnosisCard title="総合評価" icon={LeafIcon}>
+                <p className="font-semibold text-base">{result.overallHealth}</p>
+            </DiagnosisCard>
+            
+            <DiagnosisCard title="病害虫の診断" icon={PestControlIcon}>
+                <p><strong>状況:</strong> {result.pestAndDisease.details}</p>
+                <p><strong>対策:</strong> <FormattedContent content={result.pestAndDisease.countermeasures} /></p>
+            </DiagnosisCard>
+            
+            <DiagnosisCard title="液肥のアドバイス" icon={FertilizingIcon}>
+                <FormattedContent content={result.fertilizer.recommendation} />
+            </DiagnosisCard>
+            
+            <DiagnosisCard title="水やりのアドバイス" icon={WateringIcon}>
+                <p><strong>状況:</strong> {result.watering.status}</p>
+                <p><strong>アドバイス:</strong> <FormattedContent content={result.watering.recommendation} /></p>
+            </DiagnosisCard>
+            
+            <DiagnosisCard title="環境のアドバイス" icon={WeatherIcon}>
+                <FormattedContent content={result.environment.recommendation} />
+            </DiagnosisCard>
+          </div>
+        )}
+      </div>
+    </>
+  );
+};
+
 
 const SettingsPage: React.FC<{
   settings: AppSettings,
   onSettingsChange: (settings: AppSettings) => void;
-  onSave: () => void;
   onLogout: () => void;
-  onExport: (range: string, startDate?: string, endDate?: string) => void;
+  onExport: () => void;
   onConfirmationRequest: (config: Omit<ConfirmationModalProps, 'isOpen' | 'onCancel'>) => void;
   records: CultivationRecord[];
-}> = ({ settings, onSettingsChange, onSave, onLogout, onExport, onConfirmationRequest, records }) => {
+}> = ({ settings, onSettingsChange, onLogout, onExport, onConfirmationRequest, records }) => {
   const [localSettings, setLocalSettings] = useState(settings);
   const [isSyncing, setIsSyncing] = useState(false);
   const [googleUser, setGoogleUser] = useState<{name: string, email: string} | null>(null);
@@ -2561,6 +2817,12 @@ const SettingsPage: React.FC<{
               <option value="monday">月曜日</option>
             </select>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">天気予報エリア</label>
+            <select value={localSettings.weatherPrefecture} onChange={e => handleSettingsChange({ weatherPrefecture: e.target.value })} className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-white">
+              {PREFECTURES.map(pref => <option key={pref} value={pref}>{pref}</option>)}
+            </select>
+          </div>
         </div>
       </div>
       
@@ -2663,7 +2925,7 @@ const SettingsPage: React.FC<{
         <div className="bg-white p-4 rounded-lg shadow space-y-4">
           <p className="text-sm text-gray-600">デバイスに保存されている栽培記録をCSVファイルとして書き出したり、読み込んだりします。</p>
           <div className="flex gap-4">
-            <button onClick={() => onExport('all')} className="flex-1 inline-flex items-center justify-center gap-2 bg-green-100 text-green-800 font-semibold py-3 px-4 rounded-lg hover:bg-green-200 transition-colors">
+            <button onClick={onExport} className="flex-1 inline-flex items-center justify-center gap-2 bg-green-100 text-green-800 font-semibold py-3 px-4 rounded-lg hover:bg-green-200 transition-colors">
               <ExportIcon className="h-5 w-5"/>
               <span>エクスポート (CSV)</span>
             </button>
@@ -2708,6 +2970,7 @@ const App: React.FC = () => {
   const lastApiCallRef = useRef<(() => Promise<any>) | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportModalMode, setExportModalMode] = useState<'email' | 'download'>('download');
+  const [isCameraOptionModalOpen, setIsCameraOptionModalOpen] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const [settings, setSettings] = useState<AppSettings>({
@@ -2720,10 +2983,10 @@ const App: React.FC = () => {
     enableCloudSync: false,
     cloudProvider: 'google',
     syncMode: 'manual',
+    weatherPrefecture: '愛知県',
   });
 
   const recordPageRef = useRef<RecordPageHandle>(null);
-  const settingsPageRef = useRef<SettingsPageHandle>(null);
   const navigationTargetRef = useRef<{ page: string; params: any } | null>(null);
   
   // Load data from localStorage on initial mount
@@ -2959,25 +3222,42 @@ const App: React.FC = () => {
     setIsExportModalOpen(true);
   };
   
-  const handleAreaSelection = (area: string) => {
-    const latestRecordForArea = records
-      .filter(r => r.cultivationArea === area)
+  const handleLaneSelection = (lane: string) => {
+    const latestRecordForLane = records
+      .filter(r => r.cultivationLane === lane)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
 
-    if (latestRecordForArea) {
-      handleNavigate('EDIT_RECORD', { recordId: latestRecordForArea.id });
+    if (latestRecordForLane) {
+      handleNavigate('EDIT_RECORD', { recordId: latestRecordForLane.id });
     } else {
-      handleNavigate('NEW_RECORD', { area });
+      handleNavigate('NEW_RECORD', { lane });
     }
   };
   
-  const handleCameraClick = () => {
+  const handleTakePhoto = () => {
     cameraInputRef.current?.click();
+    setIsCameraOptionModalOpen(false);
+  };
+
+  const handleAiDiagnose = () => {
+    handleNavigate('PLANT_DIAGNOSIS');
+    setIsCameraOptionModalOpen(false);
   };
 
   const handleLogin = () => {
     setIsAuthenticated(true);
     setPage('DASHBOARD');
+  };
+
+  const handleLogout = () => {
+    handleConfirmationRequest({
+      title: 'ログアウト',
+      message: '本当にログアウトしますか？',
+      confirmText: 'ログアウト',
+      onConfirm: () => {
+        setIsAuthenticated(false);
+      }
+    });
   };
 
   if (!isAuthenticated) {
@@ -2991,7 +3271,7 @@ const App: React.FC = () => {
       case 'DASHBOARD': return (
         <>
           <PageHeader title={settings.teamName} {...pageHeaderProps} />
-          <Dashboard records={records} onAreaClick={handleAreaSelection} {...commonProps} />
+          <Dashboard records={records} onLaneClick={handleLaneSelection} {...commonProps} />
         </>
       );
       case 'NEW_RECORD': return (
@@ -3001,7 +3281,7 @@ const App: React.FC = () => {
             ref={recordPageRef}
             onSaveRecord={handleSaveRecord}
             onBack={() => handleNavigate('DASHBOARD')}
-            initialData={{ cultivationArea: pageParams?.area }}
+            initialData={{ cultivationLane: pageParams?.lane }}
             onDirtyChange={handleDirtyChange}
             onConfirmationRequest={handleConfirmationRequest}
             {...commonProps}
@@ -3039,16 +3319,16 @@ const App: React.FC = () => {
       case 'VEGETABLE_SEARCH': return <><PageHeader title="野菜の育て方" onBack={() => handleNavigate('TOOLS')} {...pageHeaderProps} /><VegetableSearchPage {...commonProps} /></>;
       case 'PEST_SEARCH': return <><PageHeader title="病害虫・症状検索" onBack={() => handleNavigate('TOOLS')} {...pageHeaderProps} /><PestSearchPage {...commonProps} /></>;
       case 'TERM_SEARCH': return <><PageHeader title="園芸用語辞典" onBack={() => handleNavigate('TOOLS')} {...pageHeaderProps} /><TermSearchPage {...commonProps} /></>;
-      case 'WEATHER': return <><PageHeader title="天気・暑さ指数" onBack={() => handleNavigate('TOOLS')} {...pageHeaderProps} /><WeatherPage {...commonProps} /></>;
+      case 'WEATHER': return <><PageHeader title="天気予報" onBack={() => handleNavigate('TOOLS')} {...pageHeaderProps} /><WeatherPage {...commonProps} /></>;
+      case 'PLANT_DIAGNOSIS': return <><PageHeader title="AI植物診断" onBack={() => handleNavigate('TOOLS')} {...pageHeaderProps} /><PlantDiagnosisPage {...commonProps} /></>;
       case 'SETTINGS': return (
         <>
           <PageHeader title="設定" {...pageHeaderProps} />
           <SettingsPage 
-            settings={settings}
-            onSettingsChange={setSettings}
-            onSave={() => {}}
-            onLogout={() => setIsAuthenticated(false)}
-            onExport={handleOpenExportModal}
+            settings={settings} 
+            onSettingsChange={setSettings} 
+            onLogout={handleLogout} 
+            onExport={handleOpenExportModal} 
             onConfirmationRequest={handleConfirmationRequest}
             records={records}
           />
@@ -3056,57 +3336,21 @@ const App: React.FC = () => {
       );
       default: return (
         <>
-          <PageHeader title="ベジログ" onMenuClick={() => setIsMenuOpen(true)} />
-          <div>Page not found</div>
+          <PageHeader title="ダッシュボード" {...pageHeaderProps} />
+          <Dashboard records={records} onLaneClick={handleLaneSelection} {...commonProps} />
         </>
       );
     }
   };
 
-  const isNewRecordPage = page === 'NEW_RECORD' || page === 'EDIT_RECORD';
-  
-  const getActiveTab = (p: string) => {
-    if (['DASHBOARD'].includes(p)) return 'HOME';
-    if (['HISTORY'].includes(p)) return 'CALENDAR';
-    if (['TOOLS', 'CALCULATOR', 'RECIPE_SEARCH', 'VEGETABLE_SEARCH', 'PEST_SEARCH', 'TERM_SEARCH', 'WEATHER'].includes(p)) return 'TOOLS';
-    return 'HOME';
-  };
-  const activeTab = getActiveTab(page);
-
   return (
-    <div className="max-w-xl mx-auto bg-lime-50 min-h-screen relative pb-16">
-      <input
-        type="file"
-        accept="image/*"
-        capture="environment"
-        ref={cameraInputRef}
-        className="hidden"
-        onChange={(e) => {
-            // Reset the input so the same file can be captured again if needed
-            if(e.target) e.target.value = '';
-        }}
-      />
-      {renderPage()}
-      
-      {isNewRecordPage && <FloatingSaveButton onClick={() => recordPageRef.current?.handleSubmit()} />}
-      
-      <SaveConfirmationModal 
-        isOpen={showSaveConfirm}
-        onConfirm={handleSaveConfirm}
-        onDeny={handleSaveDeny}
-        onClose={() => setShowSaveConfirm(false)}
-      />
-
+    <div className="bg-lime-50 min-h-screen">
+      <SaveConfirmationModal isOpen={showSaveConfirm} onConfirm={handleSaveConfirm} onDeny={handleSaveDeny} onClose={() => setShowSaveConfirm(false)} />
       <ConfirmationModal
         isOpen={isConfirmationOpen}
         {...confirmationModal}
         onCancel={() => setIsConfirmationOpen(false)}
-        onConfirm={() => {
-          confirmationModal.onConfirm();
-          setIsConfirmationOpen(false);
-        }}
       />
-      
       <ApiErrorModal
         isOpen={isApiErrorModalOpen}
         error={apiError}
@@ -3115,42 +3359,69 @@ const App: React.FC = () => {
         onSwitchAi={handleApiErrorSwitch}
         onStopAi={handleApiErrorStop}
       />
-      
-      <ExportModal 
+      <ExportModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         onExport={handleExportRecords}
         mode={exportModalMode}
       />
+       <CameraOptionModal
+        isOpen={isCameraOptionModalOpen}
+        onClose={() => setIsCameraOptionModalOpen(false)}
+        onTakePhoto={handleTakePhoto}
+        onAiDiagnose={handleAiDiagnose}
+      />
+       <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={(e) => {
+          if (e.target.files && e.target.files[0]) {
+              const file = e.target.files[0];
+              // This is a bit of a hack. Ideally, we'd pass this info to RecordPage.
+              // For now, let's assume we are adding a photo to a new record.
+              const newRecord = {
+                  id: new Date().toISOString(),
+                  date: toISODateString(new Date()),
+                  cropName: '',
+                  cultivationLane: CULTIVATION_LANES[0],
+                  workTypes: [],
+                  memo: 'AI診断からの写真',
+                  photoBase64: '', // will be filled by reader
+              };
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                  newRecord.photoBase64 = reader.result as string;
+                  handleNavigate('NEW_RECORD', { initialData: newRecord });
+              };
+              reader.readAsDataURL(file);
+          }
+          e.target.value = ''; // Reset input
+      }} className="hidden" />
 
-      <HamburgerMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} setPage={handleNavigate} activePage={page} onLogout={() => setIsAuthenticated(false)}/>
-
-      <footer className="fixed bottom-0 left-0 right-0 max-w-xl mx-auto bg-amber-100 border-t border-amber-200 flex justify-around h-16 z-20">
-        <button onClick={() => handleNavigate('DASHBOARD')} className={`flex flex-col items-center justify-center w-full transition-colors ${activeTab === 'HOME' ? 'text-green-600' : 'text-gray-500 hover:text-green-500'}`}>
-          <HomeIcon className="h-6 w-6" />
-          <span className="text-xs">ホーム</span>
+      <HamburgerMenu
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        setPage={handleNavigate}
+        activePage={page}
+        onLogout={handleLogout}
+      />
+      
+      <main className="pb-24">
+        {renderPage()}
+      </main>
+      
+      <footer className="fixed bottom-0 left-0 right-0 bg-white shadow-top z-20 flex justify-around items-center h-16">
+        {/* Nav Buttons */}
+        <button onClick={() => handleNavigate('HISTORY')} className="flex flex-col items-center text-gray-600 hover:text-green-600 w-1/5"><CalendarIcon className="h-6 w-6 mb-1"/> <span className="text-xs">カレンダー</span></button>
+        <button onClick={() => handleNavigate('DASHBOARD')} className="flex flex-col items-center text-gray-600 hover:text-green-600 w-1/5"><HomeIcon className="h-6 w-6 mb-1"/> <span className="text-xs">ホーム</span></button>
+        <button onClick={() => handleNavigate('NEW_RECORD')} className="flex flex-col items-center text-white -mt-8 w-1/5">
+            <div className="bg-green-600 rounded-full p-4 shadow-lg border-4 border-white"><NewRecordIcon className="h-8 w-8"/></div>
         </button>
-        <button onClick={() => handleNavigate('HISTORY')} className={`flex flex-col items-center justify-center w-full transition-colors ${activeTab === 'CALENDAR' ? 'text-green-600' : 'text-gray-500 hover:text-green-500'}`}>
-          <CalendarIcon className="h-6 w-6" />
-          <span className="text-xs">カレンダー</span>
-        </button>
-        <button onClick={handleCameraClick} className="flex flex-col items-center justify-center w-full text-gray-500 hover:text-green-500">
-          <CameraIcon className="h-6 w-6" />
-          <span className="text-xs">カメラ</span>
-        </button>
-        <button onClick={handleEmailClick} className="flex flex-col items-center justify-center w-full text-gray-500 hover:text-green-500">
-            <PaperPlaneIcon className="h-6 w-6" />
-            <span className="text-xs">メール</span>
-        </button>
-        <button onClick={() => handleNavigate('TOOLS')} className={`flex flex-col items-center justify-center w-full transition-colors ${activeTab === 'TOOLS' ? 'text-green-600' : 'text-gray-500 hover:text-green-500'}`}>
-          <ToolsIcon className="h-6 w-6" />
-          <span className="text-xs">ツール</span>
-        </button>
+        <button onClick={() => setIsCameraOptionModalOpen(true)} className="flex flex-col items-center text-gray-600 hover:text-green-600 w-1/5"><CameraIcon className="h-6 w-6 mb-1"/> <span className="text-xs">カメラ</span></button>
+        <button onClick={handleEmailClick} className="flex flex-col items-center text-gray-600 hover:text-green-600 w-1/5"><MailIcon className="h-6 w-6 mb-1"/> <span className="text-xs">メール</span></button>
       </footer>
+      
+      {isDirty && (page === 'NEW_RECORD' || page === 'EDIT_RECORD') && <FloatingSaveButton onClick={() => recordPageRef.current?.handleSubmit()} />}
     </div>
   );
 };
-
 
 export default App;
 // #endregion

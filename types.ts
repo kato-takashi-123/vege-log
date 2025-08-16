@@ -43,7 +43,7 @@ export enum ObservationStatus {
 export interface CultivationRecord {
   id: string;
   cropName: string;
-  cultivationArea: string;
+  cultivationLane: string;
   workTypes: WorkType[];
   cropStages?: CropStage[];
   observationStatus?: ObservationStatus[];
@@ -112,4 +112,23 @@ export interface VegetableInfo {
   cultivationTips: string[];
   pestControl: string[];
   groundingChunks?: any[];
+}
+
+export interface PlantDiagnosis {
+  overallHealth: string;
+  pestAndDisease: {
+    isDetected: boolean;
+    details: string;
+    countermeasures: string;
+  };
+  fertilizer: {
+    recommendation: string;
+  };
+  watering: {
+    status: 'Adequate' | 'Overwatered' | 'Underwatered' | '適切' | '過剰' | '不足';
+    recommendation: string;
+  };
+  environment: {
+    recommendation: string;
+  };
 }

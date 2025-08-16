@@ -1,6 +1,7 @@
 
+
 import { GoogleGenAI, Type, GenerateContentResponse, GenerateImagesResponse } from "@google/genai";
-import { WeatherInfo, PestInfo, VegetableInfo } from './types';
+import { WeatherInfo, PestInfo, VegetableInfo, PlantDiagnosis } from './types';
 
 if (!process.env.API_KEY) {
   console.warn("API_KEY environment variable not set. Gemini features will not work.");
@@ -207,6 +208,70 @@ const geminiGetPestInfo = async (query: string, model: string, image?: { mimeTyp
         return parsed as PestInfo;
     } catch (parseError) {
         console.error("Failed to parse Gemini response as JSON for pest info:", response.text, parseError);
+        throw new Error("AIからの応答が不正な形式でした。");
+    }
+};
+
+const geminiDiagnosePlantHealth = async (model: string, image: { mimeType: string; data: string }): Promise<PlantDiagnosis> => {
+    const schema = {
+        type: Type.OBJECT,
+        properties: {
+            overallHealth: { type: Type.STRING, description: '植物の全体的な健康状態を「健康的」「注意が必要」「病気の可能性」のいずれかで評価してください。' },
+            pestAndDisease: {
+                type: Type.OBJECT,
+                properties: {
+                    isDetected: { type: Type.BOOLEAN, description: '病害虫が検出されたかどうか。' },
+                    details: { type: Type.STRING, description: '検出された病害虫や病気の兆候に関する詳細な説明。見つからなければ「特に問題は見られません。」と記述。' },
+                    countermeasures: { type: Type.STRING, description: '農薬を一切使わない、物理的防除や「TOMATEC M-Plus 2」の活用を中心とした具体的な対策方法。' },
+                },
+                required: ['isDetected', 'details', 'countermeasures']
+            },
+            fertilizer: {
+                type: Type.OBJECT,
+                properties: {
+                    recommendation: { type: Type.STRING, description: '「TOMATEC M-Plus 1」と「TOMATEC M-Plus 2」の濃度や頻度に関する具体的な調整アドバイス。' },
+                },
+                required: ['recommendation']
+            },
+            watering: {
+                type: Type.OBJECT,
+                properties: {
+                    status: { type: Type.STRING, enum: ['適切', '過剰', '不足'], description: '潅水（水やり）の状態を「適切」「過剰」「不足」のいずれかで評価。' },
+                    recommendation: { type: Type.STRING, description: '潅水の過不足に関する具体的なアドバイス。' },
+                },
+                required: ['status', 'recommendation']
+            },
+            environment: {
+                type: Type.OBJECT,
+                properties: {
+                    recommendation: { type: Type.STRING, description: '日照障害の可能性や、それに対する寒冷紗の活用など、環境に関する具体的なアドバイス。' },
+                },
+                required: ['recommendation']
+            }
+        },
+        required: ['overallHealth', 'pestAndDisease', 'fertilizer', 'watering', 'environment']
+    };
+
+    const prompt = "この野菜の画像から、健康状態を診断してください。以下のJSONスキーマに従って、農薬を使わない持続可能な方法でのアドバイスを生成してください。";
+    const parts = [
+        { inlineData: { mimeType: image.mimeType, data: image.data } },
+        { text: prompt }
+    ];
+
+    const config = {
+        systemInstruction: "あなたは経験豊富な植物病理学者であり、家庭菜園のアドバイザーです。提供された画像から植物の状態を詳細に分析し、ユーザーが直面している問題を特定します。あなたのアドバイスは常に科学的根拠に基づき、初心者にも理解しやすい言葉で説明されます。特に重要なのは、化学農薬や自然農薬（木酢液など）を一切推奨せず、物理的防除（手で取り除く、ネットをかける等）や、植物の自己免疫力を高めるための液肥（例：「TOMATEC M-Plus」シリーズ）の適切な使用、栽培環境の改善（日当たり、風通し、水やり）といった、総合的病害虫管理（IPM）の考え方に基づいた持続可能な解決策を提案することです。回答は必ず指定されたJSONスキーマに従ってください。",
+        temperature: 0.4,
+        responseMimeType: "application/json",
+        responseSchema: schema,
+    };
+
+    const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({ model, contents: { parts }, config }));
+    
+    try {
+        const jsonText = response.text.trim();
+        return JSON.parse(jsonText) as PlantDiagnosis;
+    } catch (parseError) {
+        console.error("Failed to parse Gemini response as JSON for plant diagnosis:", response.text, parseError);
         throw new Error("AIからの応答が不正な形式でした。");
     }
 };
@@ -579,6 +644,31 @@ export const searchPestInfo = async (query: string, model: string, image?: { mim
     return chatGptGetPestInfo(query);
   }
   return await geminiGetPestInfo(query, model, image);
+};
+
+export const diagnosePlantHealth = async (model: string, image: { mimeType: string; data: string }): Promise<PlantDiagnosis> => {
+  if (getProvider(model) === 'openai') {
+    await mockApiCall(2500);
+    return {
+      overallHealth: "注意が必要 (Mock)",
+      pestAndDisease: {
+        isDetected: true,
+        details: "葉にアブラムシの初期発生が見られます。",
+        countermeasures: "M-Plus 2を散布して植物の抵抗力を高め、数が少ないうちに手で取り除いてください。"
+      },
+      fertilizer: {
+        recommendation: "M-Plus 1の頻度を週に1回に保ちつつ、M-Plus 2の散布を週に2回に増やして様子を見てください。"
+      },
+      watering: {
+        status: 'Adequate',
+        recommendation: "現在の水やりは適切です。パミスの表面が乾いたら与えるようにしてください。"
+      },
+      environment: {
+        recommendation: "日当たりは良好ですが、午後の西日が強すぎる場合は、寒冷紗で30%程度の遮光を検討してください。"
+      }
+    };
+  }
+  return await geminiDiagnosePlantHealth(model, image);
 };
 
 export const generateRecipeImage = async (prompt: string, model: string): Promise<string> => {
