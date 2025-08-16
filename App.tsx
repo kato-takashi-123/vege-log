@@ -2151,6 +2151,128 @@ const TermSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handl
   );
 };
 
+const WeatherChart: React.FC<{ hourlyData: WeatherInfo['hourly'] }> = ({ hourlyData }) => {
+    const CHART_HEIGHT = 220;
+    const ITEM_WIDTH = 65;
+    const TEMP_AREA_HEIGHT = 100;
+    const PRECIP_AREA_HEIGHT = 50;
+    const PADDING_TOP = 25;
+    const PADDING_BOTTOM = 55;
+
+    if (!hourlyData || hourlyData.length === 0) return null;
+
+    const svgWidth = hourlyData.length * ITEM_WIDTH;
+
+    const temps = hourlyData.map(h => h.temperature);
+    const precips = hourlyData.map(h => h.precipitation);
+    const minTemp = Math.min(...temps) - 2;
+    const maxTemp = Math.max(...temps) + 2;
+    const maxPrecip = Math.max(...precips, 1); // Avoid division by zero, ensure a scale exists
+
+    const tempToY = (temp: number) => {
+        return PADDING_TOP + TEMP_AREA_HEIGHT - ((temp - minTemp) / (maxTemp - minTemp)) * TEMP_AREA_HEIGHT;
+    };
+
+    const precipToHeight = (precip: number) => {
+        return (precip / maxPrecip) * PRECIP_AREA_HEIGHT;
+    };
+    
+    const linePath = hourlyData.map((h, i) => {
+        const x = i * ITEM_WIDTH + ITEM_WIDTH / 2;
+        const y = tempToY(h.temperature);
+        return `${i === 0 ? 'M' : 'L'} ${x},${y}`;
+    }).join(' ');
+
+    return (
+        <div className="overflow-x-auto bg-gray-50 p-2 rounded-lg -mx-2">
+            <svg width={svgWidth} height={CHART_HEIGHT} className="select-none">
+                {/* Precipitation Bars and Labels */}
+                {hourlyData.map((h, i) => {
+                    const barHeight = precipToHeight(h.precipitation);
+                    const x = i * ITEM_WIDTH + (ITEM_WIDTH - 20) / 2;
+                    const y = PADDING_TOP + TEMP_AREA_HEIGHT + 10;
+                    return (
+                        <g key={`precip-${i}`}>
+                            <rect
+                                x={x}
+                                y={y}
+                                width={20}
+                                height={barHeight}
+                                fill="#60a5fa" // blue-400
+                                rx="4"
+                                ry="4"
+                            />
+                            {h.precipitation > 0 && (
+                                <text
+                                    x={x + 10}
+                                    y={y + barHeight + 14}
+                                    textAnchor="middle"
+                                    fontSize="11"
+                                    fill="#4b5563" // gray-600
+                                >
+                                    {h.precipitation}mm
+                                </text>
+                            )}
+                        </g>
+                    );
+                })}
+
+                {/* Temperature Line */}
+                <path d={linePath} fill="none" stroke="#f97316" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+
+                {/* Temperature Points & Labels */}
+                {hourlyData.map((h, i) => {
+                    const x = i * ITEM_WIDTH + ITEM_WIDTH / 2;
+                    const y = tempToY(h.temperature);
+                    return (
+                        <g key={`point-${i}`}>
+                            <circle cx={x} cy={y} r="4" fill="#f97316" stroke="white" strokeWidth="2"/>
+                            <text
+                                x={x}
+                                y={y - 10}
+                                textAnchor="middle"
+                                fontWeight="bold"
+                                fontSize="14"
+                                fill="#4b5563"
+                            >
+                                {Math.round(h.temperature)}°
+                            </text>
+                        </g>
+                    );
+                })}
+
+                {/* Time & Weather Labels at bottom */}
+                {hourlyData.map((h, i) => {
+                    const x = i * ITEM_WIDTH + ITEM_WIDTH / 2;
+                    return (
+                        <g key={`time-${i}`}>
+                             <text
+                                x={x}
+                                y={CHART_HEIGHT - 25}
+                                textAnchor="middle"
+                                fontSize="12"
+                                fill="#4b5563"
+                            >
+                                {h.weather}
+                            </text>
+                            <text
+                                x={x}
+                                y={CHART_HEIGHT - 8}
+                                textAnchor="middle"
+                                fontWeight="bold"
+                                fontSize="14"
+                                fill="#1f2937"
+                            >
+                                {h.time}
+                            </text>
+                        </g>
+                    );
+                })}
+            </svg>
+        </div>
+    );
+};
+
 const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleApiCall }) => {
     const [weather, setWeather] = useState<WeatherInfo | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -2278,11 +2400,11 @@ const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleAp
                         <p className="text-gray-600">湿度: {weather.current.humidity}%</p>
                     </div>
                     
-                    {(() => {
-                        const wbgtStyle = getWbgtColor(weather.current.wbgt);
+                    {weather.current.wbgt != null && (() => {
+                        const wbgtStyle = getWbgtColor(weather.current.wbgt!);
                         return (
                             <div className={`${wbgtStyle.bg} ${wbgtStyle.text} p-3 rounded-lg text-center`}>
-                                <p className="font-bold">暑さ指数 (WBGT): {weather.current.wbgt.toFixed(1)}°C</p>
+                                <p className="font-bold">暑さ指数 (WBGT): {weather.current.wbgt!.toFixed(1)}°C</p>
                                 <p className="text-sm font-semibold">{wbgtStyle.label}</p>
                             </div>
                         );
@@ -2290,27 +2412,19 @@ const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleAp
                 </div>
 
                 <div className="bg-white p-4 rounded-xl shadow-md">
-                    <h3 className="font-bold text-gray-800 mb-2">時間ごとの予報</h3>
-                    <div className="flex overflow-x-auto gap-4 pb-2">
-                        {weather.hourly.map((hour, index) => (
-                            <div key={index} className="flex-shrink-0 text-center p-2 rounded-lg bg-gray-50 w-20">
-                                <p className="font-semibold text-sm">{hour.time}</p>
-                                <p className="text-lg font-bold my-1">{Math.round(hour.temperature)}°</p>
-                                <p className="text-xs text-gray-600">{hour.weather}</p>
-                            </div>
-                        ))}
-                    </div>
+                    <h3 className="font-bold text-gray-800 mb-2">3時間ごとの予報</h3>
+                    <WeatherChart hourlyData={weather.hourly} />
                 </div>
 
                 <div className="bg-white p-4 rounded-xl shadow-md">
                     <h3 className="font-bold text-gray-800 mb-2">週間予報</h3>
                     <div className="space-y-2">
                         {weather.weekly.map((day, index) => (
-                            <div key={index} className="flex justify-between items-center text-sm">
-                                <p className="font-semibold w-1/3">{day.day}</p>
+                            <div key={index} className="flex justify-between items-center text-sm p-1 rounded-md hover:bg-gray-50">
+                                <p className="font-semibold w-1/3">{`${day.date.substring(5).replace('-', '/')}(${day.day.charAt(0)})`}</p>
                                 <p className="w-1/3 text-center text-gray-600">{day.weather}</p>
                                 <p className="w-1/3 text-right">
-                                    <span className="font-bold">{Math.round(day.temp_max)}°</span> / <span>{Math.round(day.temp_min)}°</span>
+                                    <span className="font-bold text-red-500">{Math.round(day.temp_max)}°</span> / <span className="text-blue-500">{Math.round(day.temp_min)}°</span>
                                 </p>
                             </div>
                         ))}

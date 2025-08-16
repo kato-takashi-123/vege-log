@@ -65,14 +65,16 @@ export interface WeatherInfo {
     weather: string;
     temperature: number;
     humidity: number;
-    wbgt: number;
+    wbgt?: number;
   };
   hourly: {
     time: string;
     temperature: number;
+    precipitation: number;
     weather: string;
   }[];
   weekly: {
+    date: string;
     day: string;
     temp_max: number;
     temp_min: number;

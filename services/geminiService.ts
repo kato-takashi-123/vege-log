@@ -332,35 +332,37 @@ const geminiGetWeatherInfo = async (prompt: string, model: string): Promise<Weat
                     weather: { type: Type.STRING, description: 'A brief description of the current weather (e.g., "晴れ", "曇り").' },
                     temperature: { type: Type.NUMBER, description: 'Current temperature in Celsius.' },
                     humidity: { type: Type.NUMBER, description: 'Current humidity in percent.' },
-                    wbgt: { type: Type.NUMBER, description: 'Current Wet-Bulb Globe Temperature (WBGT) in Celsius. If not available, estimate it.' },
+                    wbgt: { type: Type.NUMBER, description: 'Current Wet-Bulb Globe Temperature (WBGT) in Celsius. If official data is not available, return null.' },
                 },
-                required: ['weather', 'temperature', 'humidity', 'wbgt']
+                required: ['weather', 'temperature', 'humidity']
             },
             hourly: {
                 type: Type.ARRAY,
-                description: 'Hourly forecast for the next 12 hours.',
+                description: '3-hourly forecast for today and tomorrow.',
                 items: {
                     type: Type.OBJECT,
                     properties: {
-                        time: { type: Type.STRING, description: 'The time for the forecast (e.g., "14:00").' },
+                        time: { type: Type.STRING, description: 'The time for the forecast (e.g., "15:00").' },
                         temperature: { type: Type.NUMBER, description: 'Forecasted temperature in Celsius.' },
+                        precipitation: { type: Type.NUMBER, description: 'Forecasted precipitation in mm.' },
                         weather: { type: Type.STRING, description: 'Forecasted weather description.' },
                     },
-                    required: ['time', 'temperature', 'weather']
+                    required: ['time', 'temperature', 'precipitation', 'weather']
                 }
             },
             weekly: {
                 type: Type.ARRAY,
-                description: 'Daily forecast for the next 7 days.',
+                description: 'Daily forecast for the next 7 days, starting from today.',
                 items: {
                     type: Type.OBJECT,
                     properties: {
+                        date: { type: Type.STRING, description: 'The date for the forecast in YYYY-MM-DD format.'},
                         day: { type: Type.STRING, description: 'The day of the week (e.g., "火曜日").' },
                         temp_max: { type: Type.NUMBER, description: 'Maximum temperature in Celsius.' },
                         temp_min: { type: Type.NUMBER, description: 'Minimum temperature in Celsius.' },
                         weather: { type: Type.STRING, description: 'Forecasted weather description.' },
                     },
-                    required: ['day', 'temp_max', 'temp_min', 'weather']
+                    required: ['date', 'day', 'temp_max', 'temp_min', 'weather']
                 }
             }
         },
@@ -420,31 +422,46 @@ const chatGptGetVegetableInfo = async (query: string): Promise<VegetableInfo> =>
 
 const chatGptGetWeatherInfo = async (): Promise<WeatherInfo> => {
     await mockApiCall(1000);
+    // Helper to format date as YYYY-MM-DD
+    const toISODateString = (date: Date): string => {
+        return date.toISOString().split('T')[0];
+    };
+
+    const now = new Date();
+    // Create 16 data points (for today and tomorrow, 3-hourly)
+    const hourlyData = Array(16).fill(0).map((_, i) => {
+        const forecastDate = new Date(now.getTime() + i * 3 * 60 * 60 * 1000);
+        return {
+            time: `${String(forecastDate.getHours()).padStart(2, '0')}:00`,
+            temperature: 25 - i + Math.round(Math.sin(i/2) * 3),
+            precipitation: Math.max(0, Math.round(Math.random() * 8 - 4)),
+            weather: ["晴れ", "曇り", "小雨", "晴れ"][i % 4],
+        };
+    });
+
     return {
-        location: "Tokyo, JP",
+        location: "Tokyo, JP (Mock)",
         current: {
             weather: "晴れ",
-            temperature: 25,
-            humidity: 60,
-            wbgt: 24.5,
+            temperature: 28,
+            humidity: 65,
+            wbgt: 26.5,
         },
-        hourly: Array(12).fill(0).map((_, i) => ({
-            time: `${(new Date().getHours() + i + 1) % 24}:00`,
-            temperature: 25 - i,
-            weather: "晴れ",
-        })),
+        hourly: hourlyData,
         weekly: Array(7).fill(0).map((_, i) => {
             const d = new Date();
             d.setDate(d.getDate() + i);
             return {
+                date: toISODateString(d),
                 day: ['日', '月', '火', '水', '木', '金', '土'][d.getDay()] + '曜日',
-                temp_max: 30 - i,
-                temp_min: 22 - i,
-                weather: "晴れ",
+                temp_max: 32 - i,
+                temp_min: 24 - Math.floor(i/2),
+                weather: "晴時々曇",
             };
         }),
     };
 };
+
 
 const chatGptGetPestInfo = async (query: string): Promise<PestInfo> => {
     await mockApiCall(1500);
@@ -497,6 +514,17 @@ const chatGptAnalyzePackage = async (): Promise<any> => {
 const chatGptSearchPests = async (): Promise<string[]> => {
     await mockApiCall(1000);
     return ['アブラムシ', 'ハダニ', 'うどんこ病'];
+};
+
+const chatGptSearchGardeningTerm = async (query: string): Promise<AiSearchResult> => {
+    await mockApiCall(1200);
+    const definitions: Record<string, string> = {
+        '摘心': '摘心（てきしん）とは、植物の主茎や側枝の先端にある成長点を摘み取る作業のことです。これにより、脇芽の成長を促進し、株を横にこんもりと茂らせたり、花や実の数を増やしたりする効果が期待できます。',
+        '連作障害': '連作障害（れんさくしょうがい）とは、同じ科の植物を同じ場所で連続して栽培することで、土壌の栄養バランスが崩れたり、特定の病原菌や害虫が増えたりして、生育が悪くなる現象を指します。パミス栽培では土壌病害のリスクは低いですが、栄養の偏りを防ぐために液肥の適切な使用が重要です。',
+        'コンパニオンプランツ': 'コンパニオンプランツとは、一緒に植えることで互いに良い影響を与え合う植物の組み合わせのことです。害虫を遠ざけたり、成長を助けたりする効果が期待されます。例えば、トマトの近くにバジルを植えると、風味を良くし、害虫を遠ざけると言われています。'
+    };
+    const text = definitions[query] || `「${query}」についての解説です。これは、植物の健全な成長を促すための重要な園芸技術の一つです。適切な時期に実施することで、収穫量を増やし、品質を向上させることができます。`;
+    return { text };
 };
 
 // #endregion
@@ -608,7 +636,7 @@ export const searchCommonPestsForCrop = async (cropName: string, model: string):
 export const searchGardeningTerm = async (query: string, model: string): Promise<AiSearchResult> => {
   if (!query.trim()) return { text: "質問を入力してください。" };
   if (getProvider(model) === 'openai') {
-    return { text: `園芸用語の「${query}」についての解説です。無農薬での栽培を心がけましょう。` };
+    return chatGptSearchGardeningTerm(query);
   }
   return await geminiSearchGardeningTerm(query, model);
 };
@@ -646,8 +674,8 @@ export const getWeatherInfo = async (location: { latitude: number; longitude: nu
         newWeatherInfo = await chatGptGetWeatherInfo();
     } else {
         const prompt = 'latitude' in location
-            ? `緯度${location.latitude}、経度${location.longitude}の現在の天気、気温（摂氏）、湿度（％）、暑さ指数（WBGT、摂氏）を教えてください。また、今後12時間分の1時間ごとの天気予報と、今後7日間の日ごとの天気予報（最高・最低気温を含む）も提供してください。`
-            : `「${location.name}」の主要都市の現在の天気、気温（摂氏）、湿度（％）、暑さ指数（WBGT、摂氏）を教えてください。また、今後12時間分の1時間ごとの天気予報と、今後7日間の日ごとの天気予報（最高・最低気温を含む）も提供してください。`;
+            ? `緯度${location.latitude}、経度${location.longitude}について、以下の情報をJSONで返してください。1. 現在の天気、気温（摂氏）、湿度（％）。2. 暑さ指数（WBGT、摂氏）。環境省などの公式な予報データが見つかる場合のみ数値で返し、見つからない場合はnullを返してください。3. 今日と明日の3時間ごとの天気予報（時刻、気温、降水量mm、天気概要）。4. 今日から7日間の日ごとの天気予報（日付 YYYY-MM-DD形式、曜日、最高・最低気温、天気概要）。`
+            : `「${location.name}」の主要都市について、以下の情報をJSONで返してください。1. 現在の天気、気温（摂氏）、湿度（％）。2. 暑さ指数（WBGT、摂氏）。環境省などの公式な予報データが見つかる場合のみ数値で返し、見つからない場合はnullを返してください。3. 今日と明日の3時間ごとの天気予報（時刻、気温、降水量mm、天気概要）。4. 今日から7日間の日ごとの天気予報（日付 YYYY-MM-DD形式、曜日、最高・最低気温、天気概要）。`;
         newWeatherInfo = await geminiGetWeatherInfo(prompt, model);
     }
 
