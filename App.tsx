@@ -57,6 +57,16 @@ const PASTEL_COLORS = [
   'bg-indigo-200', 'bg-purple-200'
 ];
 
+const PREFECTURES = [
+  '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+  '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+  '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県',
+  '静岡県', '愛知県', '三重県', '滋賀県', '京都府', '大阪府', '兵庫県',
+  '奈良県', '和歌山県', '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+  '徳島県', '香川県', '愛媛県', '高知県', '福岡県', '佐賀県', '長崎県',
+  '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'
+];
+
 const PET_BOTTLE_CAP_ML = 5;
 
 type AppSettings = {
@@ -2145,37 +2155,66 @@ const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleAp
     const [weather, setWeather] = useState<WeatherInfo | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [locationMode, setLocationMode] = useState<'current' | 'prefecture'>('current');
+    const [selectedPrefecture, setSelectedPrefecture] = useState('');
 
     useEffect(() => {
-        const fetchWeather = async (lat: number, lon: number) => {
+        const fetchWeatherByCoords = () => {
             setIsLoading(true);
             setError(null);
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    try {
+                        const data = await handleApiCall(() => getWeatherInfo({ latitude: position.coords.latitude, longitude: position.coords.longitude }, settings.selectedModel));
+                        if (data) {
+                            setWeather(data);
+                        } else {
+                            setError("天気情報の取得を中止しました。");
+                        }
+                    } catch (e) {
+                        console.error("Failed to fetch weather", e);
+                        setError("天気情報の取得に失敗しました。");
+                    } finally {
+                        setIsLoading(false);
+                    }
+                },
+                (err) => {
+                    console.error("Geolocation error:", err);
+                    setError("位置情報が取得できませんでした。ブラウザの権限を確認してください。");
+                    setIsLoading(false);
+                }
+            );
+        };
+
+        const fetchWeatherByName = async (name: string) => {
+            setIsLoading(true);
+            setError(null);
+            setWeather(null);
             try {
-                const data = await handleApiCall(() => getWeatherInfo(lat, lon, settings.selectedModel));
+                const data = await handleApiCall(() => getWeatherInfo({ name }, settings.selectedModel));
                 if (data) {
                     setWeather(data);
                 } else {
-                    setError("天気情報の取得を中止しました。");
+                    setError(`「${name}」の天気情報の取得を中止しました。`);
                 }
             } catch (e) {
-                console.error("Failed to fetch weather", e);
-                setError("天気情報の取得に失敗しました。");
+                console.error(`Failed to fetch weather for ${name}`, e);
+                setError(`「${name}」の天気情報の取得に失敗しました。`);
             } finally {
                 setIsLoading(false);
             }
         };
 
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                fetchWeather(position.coords.latitude, position.coords.longitude);
-            },
-            (err) => {
-                console.error("Geolocation error:", err);
-                setError("位置情報が取得できませんでした。ブラウザの権限を確認してください。");
-                setIsLoading(false);
-            }
-        );
-    }, [settings.selectedModel, handleApiCall]);
+        if (locationMode === 'current') {
+            fetchWeatherByCoords();
+        } else if (locationMode === 'prefecture' && selectedPrefecture) {
+            fetchWeatherByName(selectedPrefecture);
+        } else {
+            setIsLoading(false);
+            setWeather(null);
+            setError(null);
+        }
+    }, [locationMode, selectedPrefecture, settings.selectedModel, handleApiCall]);
     
     const getWbgtColor = (wbgt: number) => {
       if (wbgt >= 31) return { bg: 'bg-red-600', text: 'text-white', label: '危険' };
@@ -2184,60 +2223,101 @@ const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleAp
       if (wbgt >= 21) return { bg: 'bg-green-500', text: 'text-white', label: '注意' };
       return { bg: 'bg-blue-500', text: 'text-white', label: 'ほぼ安全' };
     };
-
-    if (isLoading) return <div className="text-center p-8">現在地の天気を読み込み中...</div>;
-    if (error) return <div className="text-center p-8 text-red-600">{error}</div>;
-    if (!weather) return <div className="text-center p-8">天気情報がありません。</div>;
-
-    const wbgtStyle = getWbgtColor(weather.current.wbgt);
+    
+    const loadingMessage = locationMode === 'current'
+      ? '現在地の天気を読み込み中...'
+      : (selectedPrefecture ? `「${selectedPrefecture}」の天気を読み込み中...` : '都道府県を選択してください。');
 
     return (
         <div className="p-4 space-y-4">
-            <div className="bg-white p-4 rounded-xl shadow-md">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <p className="text-lg font-bold text-gray-800">{weather.location}</p>
-                        <p className="text-gray-600">{weather.current.weather}</p>
+             <div className="bg-white p-4 rounded-xl shadow-md space-y-3">
+                <div className="flex rounded-md shadow-sm">
+                    <button
+                        onClick={() => setLocationMode('current')}
+                        className={`px-4 py-2 text-sm font-medium border rounded-l-md transition-colors w-1/2 ${locationMode === 'current' ? 'bg-green-600 text-white border-green-600 z-10' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                    >
+                        現在地
+                    </button>
+                    <button
+                        onClick={() => setLocationMode('prefecture')}
+                        className={`-ml-px px-4 py-2 text-sm font-medium border rounded-r-md transition-colors w-1/2 ${locationMode === 'prefecture' ? 'bg-green-600 text-white border-green-600 z-10' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                    >
+                        都道府県
+                    </button>
+                </div>
+                {locationMode === 'prefecture' && (
+                    <div className="fade-in">
+                        <select
+                            value={selectedPrefecture}
+                            onChange={e => setSelectedPrefecture(e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-lg bg-white"
+                        >
+                            <option value="">都道府県を選択してください</option>
+                            {PREFECTURES.map(pref => <option key={pref} value={pref}>{pref}</option>)}
+                        </select>
                     </div>
-                    <AiModelSelector settings={settings} onSettingsChange={onSettingsChange}/>
-                </div>
-                <div className="text-center my-4">
-                    <p className="text-6xl font-bold text-gray-800">{Math.round(weather.current.temperature)}°C</p>
-                    <p className="text-gray-600">湿度: {weather.current.humidity}%</p>
-                </div>
-                <div className={`${wbgtStyle.bg} ${wbgtStyle.text} p-3 rounded-lg text-center`}>
-                    <p className="font-bold">暑さ指数 (WBGT): {weather.current.wbgt.toFixed(1)}°C</p>
-                    <p className="text-sm font-semibold">{wbgtStyle.label}</p>
-                </div>
+                )}
             </div>
 
-            <div className="bg-white p-4 rounded-xl shadow-md">
-                <h3 className="font-bold text-gray-800 mb-2">時間ごとの予報</h3>
-                <div className="flex overflow-x-auto gap-4 pb-2">
-                    {weather.hourly.map((hour, index) => (
-                        <div key={index} className="flex-shrink-0 text-center p-2 rounded-lg bg-gray-50 w-20">
-                            <p className="font-semibold text-sm">{hour.time}</p>
-                            <p className="text-lg font-bold my-1">{Math.round(hour.temperature)}°</p>
-                            <p className="text-xs text-gray-600">{hour.weather}</p>
-                        </div>
-                    ))}
-                </div>
-            </div>
+            {isLoading && <div className="text-center p-8">{loadingMessage}</div>}
+            {error && <div className="text-center p-8 text-red-600">{error}</div>}
+            {(!isLoading && !error && !weather) && <div className="text-center p-8 text-gray-500">{loadingMessage}</div>}
 
-            <div className="bg-white p-4 rounded-xl shadow-md">
-                <h3 className="font-bold text-gray-800 mb-2">週間予報</h3>
-                <div className="space-y-2">
-                    {weather.weekly.map((day, index) => (
-                        <div key={index} className="flex justify-between items-center text-sm">
-                            <p className="font-semibold w-1/3">{day.day}</p>
-                            <p className="w-1/3 text-center text-gray-600">{day.weather}</p>
-                            <p className="w-1/3 text-right">
-                                <span className="font-bold">{Math.round(day.temp_max)}°</span> / <span>{Math.round(day.temp_min)}°</span>
-                            </p>
+            {weather && (
+              <div className="space-y-4 fade-in">
+                <div className="bg-white p-4 rounded-xl shadow-md">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <p className="text-lg font-bold text-gray-800">{weather.location}</p>
+                            <p className="text-gray-600">{weather.current.weather}</p>
                         </div>
-                    ))}
+                        <AiModelSelector settings={settings} onSettingsChange={onSettingsChange}/>
+                    </div>
+                    <div className="text-center my-4">
+                        <p className="text-6xl font-bold text-gray-800">{Math.round(weather.current.temperature)}°C</p>
+                        <p className="text-gray-600">湿度: {weather.current.humidity}%</p>
+                    </div>
+                    
+                    {(() => {
+                        const wbgtStyle = getWbgtColor(weather.current.wbgt);
+                        return (
+                            <div className={`${wbgtStyle.bg} ${wbgtStyle.text} p-3 rounded-lg text-center`}>
+                                <p className="font-bold">暑さ指数 (WBGT): {weather.current.wbgt.toFixed(1)}°C</p>
+                                <p className="text-sm font-semibold">{wbgtStyle.label}</p>
+                            </div>
+                        );
+                    })()}
                 </div>
-            </div>
+
+                <div className="bg-white p-4 rounded-xl shadow-md">
+                    <h3 className="font-bold text-gray-800 mb-2">時間ごとの予報</h3>
+                    <div className="flex overflow-x-auto gap-4 pb-2">
+                        {weather.hourly.map((hour, index) => (
+                            <div key={index} className="flex-shrink-0 text-center p-2 rounded-lg bg-gray-50 w-20">
+                                <p className="font-semibold text-sm">{hour.time}</p>
+                                <p className="text-lg font-bold my-1">{Math.round(hour.temperature)}°</p>
+                                <p className="text-xs text-gray-600">{hour.weather}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl shadow-md">
+                    <h3 className="font-bold text-gray-800 mb-2">週間予報</h3>
+                    <div className="space-y-2">
+                        {weather.weekly.map((day, index) => (
+                            <div key={index} className="flex justify-between items-center text-sm">
+                                <p className="font-semibold w-1/3">{day.day}</p>
+                                <p className="w-1/3 text-center text-gray-600">{day.weather}</p>
+                                <p className="w-1/3 text-right">
+                                    <span className="font-bold">{Math.round(day.temp_max)}°</span> / <span>{Math.round(day.temp_min)}°</span>
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+              </div>
+            )}
         </div>
     );
 };

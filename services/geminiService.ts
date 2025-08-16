@@ -321,7 +321,7 @@ const geminiSearchGardeningTerm = async (query: string, model: string): Promise<
     };
 };
 
-const geminiGetWeatherInfo = async (latitude: number, longitude: number, model: string): Promise<WeatherInfo> => {
+const geminiGetWeatherInfo = async (prompt: string, model: string): Promise<WeatherInfo> => {
     const weatherSchema = {
         type: Type.OBJECT,
         properties: {
@@ -367,7 +367,6 @@ const geminiGetWeatherInfo = async (latitude: number, longitude: number, model: 
         required: ['location', 'current', 'hourly', 'weekly']
     };
 
-    const prompt = `緯度${latitude}、経度${longitude}の現在の天気、気温（摂氏）、湿度（％）、暑さ指数（WBGT、摂氏）を教えてください。また、今後12時間分の1時間ごとの天気予報と、今後7日間の日ごとの天気予報（最高・最低気温を含む）も提供してください。`;
     const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
         model: model,
         contents: prompt,
@@ -614,7 +613,7 @@ export const searchGardeningTerm = async (query: string, model: string): Promise
   return await geminiSearchGardeningTerm(query, model);
 };
 
-export const getWeatherInfo = async (latitude: number, longitude: number, model: string): Promise<WeatherInfo> => {
+export const getWeatherInfo = async (location: { latitude: number; longitude: number } | { name: string }, model: string): Promise<WeatherInfo> => {
     const cacheKey = 'weatherInfoCache';
     const cacheDuration = 15 * 60 * 1000; // 15 minutes
 
@@ -622,9 +621,16 @@ export const getWeatherInfo = async (latitude: number, longitude: number, model:
     try {
         const cachedData = localStorage.getItem(cacheKey);
         if (cachedData) {
-            const { data, timestamp, lat, lon } = JSON.parse(cachedData);
+            const { data, timestamp, loc } = JSON.parse(cachedData);
             const isCacheValid = (Date.now() - timestamp) < cacheDuration;
-            const isLocationSame = Math.abs(lat - latitude) < 0.1 && Math.abs(lon - longitude) < 0.1;
+
+            let isLocationSame = false;
+            if ('latitude' in location && loc && 'latitude' in loc) {
+                isLocationSame = Math.abs(loc.latitude - location.latitude) < 0.1 && Math.abs(loc.longitude - location.longitude) < 0.1;
+            } else if ('name' in location && loc && 'name' in loc) {
+                isLocationSame = loc.name === location.name;
+            }
+            
             if (isCacheValid && isLocationSame) {
                 return data;
             }
@@ -639,7 +645,10 @@ export const getWeatherInfo = async (latitude: number, longitude: number, model:
     if (getProvider(model) === 'openai') {
         newWeatherInfo = await chatGptGetWeatherInfo();
     } else {
-        newWeatherInfo = await geminiGetWeatherInfo(latitude, longitude, model);
+        const prompt = 'latitude' in location
+            ? `緯度${location.latitude}、経度${location.longitude}の現在の天気、気温（摂氏）、湿度（％）、暑さ指数（WBGT、摂氏）を教えてください。また、今後12時間分の1時間ごとの天気予報と、今後7日間の日ごとの天気予報（最高・最低気温を含む）も提供してください。`
+            : `「${location.name}」の主要都市の現在の天気、気温（摂氏）、湿度（％）、暑さ指数（WBGT、摂氏）を教えてください。また、今後12時間分の1時間ごとの天気予報と、今後7日間の日ごとの天気予報（最高・最低気温を含む）も提供してください。`;
+        newWeatherInfo = await geminiGetWeatherInfo(prompt, model);
     }
 
     // 3. Store the new data in cache
@@ -647,8 +656,7 @@ export const getWeatherInfo = async (latitude: number, longitude: number, model:
         const cacheEntry = {
             data: newWeatherInfo,
             timestamp: Date.now(),
-            lat: latitude,
-            lon: longitude,
+            loc: location,
         };
         localStorage.setItem(cacheKey, JSON.stringify(cacheEntry));
     } catch (error) {
