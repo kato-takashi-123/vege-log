@@ -10,18 +10,18 @@ import {
   HomeIcon, ToolsIcon, VegetableSearchIcon, PestSearchIcon, RecipeIcon, MailIcon, MicrophoneIcon, ImageIcon, ChevronLeftIcon, ChevronRightIcon,
   HamburgerIcon, CloseIcon, SettingsIcon, TrashIcon, OpenAiIcon, RefreshIcon, RootTreatmentIcon, DiggingUpIcon, GerminationIcon, TrueLeavesIcon, PollinationIcon,
   DictionaryIcon, WeatherIcon, PaperPlaneIcon, SaveIcon, LogoutIcon, MoundIcon, VegetableBasketIcon, GoogleDriveIcon, CloudUploadIcon, CloudDownloadIcon, SyncIcon, FileImportIcon,
-  CloudIcon, ObservationIcon
+  CloudIcon, ObservationIcon, FaucetIcon
 } from './components/Icons';
 
 
 // #region --- Constants & Types ---
 const WORK_TYPE_DETAILS = {
   [WorkType.Watering]: { label: '水やり', Icon: WateringIcon, color: 'bg-cyan-500' },
-  [WorkType.Fertilizing]: { label: '液肥（追肥）', Icon: FertilizingIcon, color: 'bg-blue-500' },
+  [WorkType.Fertilizing]: { label: '液肥', Icon: FertilizingIcon, color: 'bg-blue-500' },
   [WorkType.PestControl]: { label: '病害虫対策', Icon: PestControlIcon, color: 'bg-red-500' },
   [WorkType.RootTreatment]: { label: '根処理', Icon: RootTreatmentIcon, color: 'bg-yellow-600' },
   [WorkType.DiggingUp]: { label: '掘り返し', Icon: DiggingUpIcon, color: 'bg-stone-500' },
-  [WorkType.PumiceWash]: { label: 'パミス洗い', Icon: RefreshIcon, color: 'bg-sky-500' },
+  [WorkType.PumiceWash]: { label: 'パミス洗い', Icon: FaucetIcon, color: 'bg-sky-500' },
 };
 
 const CROP_STAGE_DETAILS = {
@@ -638,6 +638,7 @@ type PageProps = {
   onSettingsChange: (newSettings: AppSettings) => void;
   onBack?: () => void;
   handleApiCall: ApiCallHandler;
+  records: CultivationRecord[];
 };
 
 const PageHeader: React.FC<{ title: string; onBack?: () => void; onMenuClick?: () => void; }> = ({ title, onBack, onMenuClick }) => (
@@ -1949,13 +1950,13 @@ const CalendarHistoryPage: React.FC<{
 
 const ToolsPage: React.FC<{ setPage: (page: string) => void }> = ({ setPage }) => {
   const tools = [
+    { name: 'AI作物診断', icon: ObservationIcon, page: 'PLANT_DIAGNOSIS' },
     { name: '液肥計算機', icon: CalculatorIcon, page: 'CALCULATOR' },
-    { name: 'レシピ検索', icon: RecipeIcon, page: 'RECIPE_SEARCH' },
     { name: '野菜の育て方検索', icon: VegetableSearchIcon, page: 'VEGETABLE_SEARCH' },
     { name: '病害虫・症状検索', icon: PestSearchIcon, page: 'PEST_SEARCH' },
-    { name: 'AI植物診断', icon: ObservationIcon, page: 'PLANT_DIAGNOSIS' },
     { name: '園芸用語辞典', icon: DictionaryIcon, page: 'TERM_SEARCH' },
     { name: '天気・暑さ指数', icon: WeatherIcon, page: 'WEATHER' },
+    { name: 'レシピ検索', icon: RecipeIcon, page: 'RECIPE_SEARCH' },
   ];
 
   return (
@@ -1976,7 +1977,7 @@ const ToolsPage: React.FC<{ setPage: (page: string) => void }> = ({ setPage }) =
   );
 };
 
-const CalculatorPage: React.FC<PageProps> = ({ setPage }) => {
+const CalculatorPage: React.FC<PageProps> = ({ setPage, records }) => {
   const [fertilizer, setFertilizer] = useState<'M-Plus-1' | 'M-Plus-2'>('M-Plus-1');
   const [waterAmount, setWaterAmount] = useState('2');
   const [dilution, setDilution] = useState('500');
@@ -2025,22 +2026,27 @@ const CalculatorPage: React.FC<PageProps> = ({ setPage }) => {
 };
 
 
-const RecipeSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleApiCall }) => {
+const RecipeSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleApiCall, records }) => {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [recipes, setRecipes] = useState<any[]>([]);
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
 
   const { isListening, startListening } = useVoiceRecognition({ onResult: setQuery });
+
+  const cultivatedCrops = useMemo(() => {
+    const cropNames = records.map(r => r.cropName).filter(Boolean);
+    return [...new Set(cropNames)];
+  }, [records]);
   
-  const handleSearch = useCallback(async () => {
-    if (!query.trim()) return;
+  const handleSearch = useCallback(async (searchQuery: string) => {
+    if (!searchQuery.trim()) return;
     setIsLoading(true);
     setRecipes([]);
     setImageUrls({});
     
     try {
-      const result = await handleApiCall(() => searchRecipes(query, settings.selectedModel));
+      const result = await handleApiCall(() => searchRecipes(searchQuery, settings.selectedModel));
       if (result) {
           const parsed = JSON.parse(result.text);
           setRecipes(parsed.recipes || []);
@@ -2051,7 +2057,7 @@ const RecipeSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, han
     } finally {
       setIsLoading(false);
     }
-  }, [query, settings.selectedModel, handleApiCall]);
+  }, [settings.selectedModel, handleApiCall]);
   
   useEffect(() => {
     if (recipes.length > 0) {
@@ -2070,6 +2076,11 @@ const RecipeSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, han
     }
   }, [recipes, settings.selectedModel, handleApiCall]);
 
+  const handleCropButtonClick = (cropName: string) => {
+    setQuery(cropName);
+    handleSearch(cropName);
+  };
+
   return (
     <div className="p-4 space-y-4">
       <div className="bg-white p-4 rounded-xl shadow-md">
@@ -2083,17 +2094,34 @@ const RecipeSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, han
               type="text" 
               value={query}
               onChange={e => setQuery(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+              onKeyDown={e => e.key === 'Enter' && handleSearch(query)}
               placeholder="野菜名を入力 (例: トマト)"
               className="w-full p-2 border border-gray-300 rounded-lg pr-10"
               disabled={isLoading}
             />
             <button onClick={startListening} disabled={isLoading} className={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full ${isListening ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200'}`}><MicrophoneIcon className="h-5 w-5" /></button>
           </div>
-          <button onClick={handleSearch} disabled={isLoading || !query.trim()} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400">
+          <button onClick={() => handleSearch(query)} disabled={isLoading || !query.trim()} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400">
             検索
           </button>
         </div>
+        {cultivatedCrops.length > 0 && (
+          <div className="mt-3">
+            <p className="text-xs text-gray-500 mb-1">現在栽培中の作物:</p>
+            <div className="flex flex-wrap gap-2">
+              {cultivatedCrops.map(crop => (
+                <button
+                  key={crop}
+                  onClick={() => handleCropButtonClick(crop)}
+                  disabled={isLoading}
+                  className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-full hover:bg-green-200 transition-colors disabled:opacity-50"
+                >
+                  {crop}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {isLoading && <div className="text-center p-4">レシピを検索中...</div>}
@@ -2126,19 +2154,24 @@ const RecipeSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, han
 };
 
 
-const VegetableSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleApiCall }) => {
+const VegetableSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleApiCall, records }) => {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<VegetableInfo | null>(null);
 
   const { isListening, startListening } = useVoiceRecognition({ onResult: setQuery });
+
+  const cultivatedCrops = useMemo(() => {
+    const cropNames = records.map(r => r.cropName).filter(Boolean);
+    return [...new Set(cropNames)];
+  }, [records]);
   
-  const handleSearch = useCallback(async () => {
-    if (!query.trim()) return;
+  const handleSearch = useCallback(async (searchQuery: string) => {
+    if (!searchQuery.trim()) return;
     setIsLoading(true);
     setResult(null);
     try {
-      const info = await handleApiCall(() => getVegetableInfo(query, settings.selectedModel));
+      const info = await handleApiCall(() => getVegetableInfo(searchQuery, settings.selectedModel));
       if (info) setResult(info);
     } catch (e) {
       console.error(e);
@@ -2146,7 +2179,12 @@ const VegetableSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, 
     } finally {
       setIsLoading(false);
     }
-  }, [query, settings.selectedModel, handleApiCall]);
+  }, [settings.selectedModel, handleApiCall]);
+  
+  const handleCropButtonClick = (cropName: string) => {
+    setQuery(cropName);
+    handleSearch(cropName);
+  };
   
   const InfoSection: React.FC<{title: string; children: React.ReactNode;}> = ({title, children}) => (
     <div className="bg-white p-4 rounded-xl shadow-md">
@@ -2164,11 +2202,28 @@ const VegetableSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, 
         </div>
         <div className="flex gap-2">
            <div className="relative flex-grow">
-            <input type="text" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()} placeholder="野菜名を入力" className="w-full p-2 border border-gray-300 rounded-lg pr-10" disabled={isLoading} />
+            <input type="text" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch(query)} placeholder="野菜名を入力" className="w-full p-2 border border-gray-300 rounded-lg pr-10" disabled={isLoading} />
             <button onClick={startListening} disabled={isLoading} className={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full ${isListening ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200'}`}><MicrophoneIcon className="h-5 w-5" /></button>
           </div>
-          <button onClick={handleSearch} disabled={isLoading || !query.trim()} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400">検索</button>
+          <button onClick={() => handleSearch(query)} disabled={isLoading || !query.trim()} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400">検索</button>
         </div>
+        {cultivatedCrops.length > 0 && (
+          <div className="mt-3">
+            <p className="text-xs text-gray-500 mb-1">現在栽培中の作物:</p>
+            <div className="flex flex-wrap gap-2">
+              {cultivatedCrops.map(crop => (
+                <button
+                  key={crop}
+                  onClick={() => handleCropButtonClick(crop)}
+                  disabled={isLoading}
+                  className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-full hover:bg-green-200 transition-colors disabled:opacity-50"
+                >
+                  {crop}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       
       {isLoading && <div className="text-center p-4">AIが育て方を調べています...</div>}
@@ -2197,7 +2252,7 @@ const VegetableSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, 
   );
 };
 
-const PestSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleApiCall }) => {
+const PestSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleApiCall, records }) => {
   const [query, setQuery] = useState('');
   const [image, setImage] = useState<{ file: File, preview: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -2285,7 +2340,7 @@ const PestSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handl
   );
 };
 
-const TermSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleApiCall }) => {
+const TermSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleApiCall, records }) => {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<AiSearchResult | null>(null);
@@ -2451,7 +2506,7 @@ const WeatherChart: React.FC<{ hourlyData: WeatherInfo['hourly']; startDate: str
     );
 };
 
-const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleApiCall }) => {
+const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleApiCall, records }) => {
     const [weather, setWeather] = useState<WeatherInfo | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -2558,7 +2613,7 @@ const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleAp
     );
 };
 
-const PlantDiagnosisPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleApiCall }) => {
+const PlantDiagnosisPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleApiCall, records }) => {
   const [image, setImage] = useState<{ file: File, preview: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<PlantDiagnosis | null>(null);
@@ -2626,7 +2681,7 @@ const PlantDiagnosisPage: React.FC<PageProps> = ({ settings, onSettingsChange, h
       <div className="p-4 space-y-4">
         <div className="bg-white p-4 rounded-xl shadow-md space-y-3">
           <div className="flex justify-between items-center">
-              <h3 className="font-semibold text-gray-800">AI植物診断</h3>
+              <h3 className="font-semibold text-gray-800">AI作物診断</h3>
               <AiModelSelector settings={settings} onSettingsChange={onSettingsChange} disabled={isLoading}/>
           </div>
           
@@ -2657,7 +2712,7 @@ const PlantDiagnosisPage: React.FC<PageProps> = ({ settings, onSettingsChange, h
             ) : (
               <>
                 <ObservationIcon className="h-5 w-5" />
-                <span>この植物を診断する</span>
+                <span>この作物を診断する</span>
               </>
             )}
           </button>
@@ -2840,6 +2895,16 @@ const SettingsPage: React.FC<{
                   {VALID_MODELS.map(model => <option key={model} value={model}>{model}</option>)}
                 </select>
              </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-lg font-bold text-gray-800">表示設定</h3>
+        <div className="bg-white p-4 rounded-lg shadow space-y-4">
+          <div className="flex items-center justify-between">
+            <label htmlFor="enable-pumice-wash" className="text-sm font-medium text-gray-700">「パミス洗い」作業を表示</label>
+            <input type="checkbox" id="enable-pumice-wash" checked={localSettings.enablePumiceWash} onChange={e => handleSettingsChange({ enablePumiceWash: e.target.checked })} className="h-6 w-11 rounded-full bg-gray-200 after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all checked:bg-green-600 checked:after:translate-x-full focus:ring-0" />
           </div>
         </div>
       </div>
@@ -3265,7 +3330,7 @@ const App: React.FC = () => {
   }
 
   const renderPage = () => {
-    const commonProps = { setPage: handleNavigate, settings, onSettingsChange: setSettings, handleApiCall };
+    const commonProps = { setPage: handleNavigate, settings, onSettingsChange: setSettings, handleApiCall, records };
     const pageHeaderProps = { onMenuClick: () => setIsMenuOpen(true) };
     switch (page) {
       case 'DASHBOARD': return (
@@ -3320,7 +3385,7 @@ const App: React.FC = () => {
       case 'PEST_SEARCH': return <><PageHeader title="病害虫・症状検索" onBack={() => handleNavigate('TOOLS')} {...pageHeaderProps} /><PestSearchPage {...commonProps} /></>;
       case 'TERM_SEARCH': return <><PageHeader title="園芸用語辞典" onBack={() => handleNavigate('TOOLS')} {...pageHeaderProps} /><TermSearchPage {...commonProps} /></>;
       case 'WEATHER': return <><PageHeader title="天気予報" onBack={() => handleNavigate('TOOLS')} {...pageHeaderProps} /><WeatherPage {...commonProps} /></>;
-      case 'PLANT_DIAGNOSIS': return <><PageHeader title="AI植物診断" onBack={() => handleNavigate('TOOLS')} {...pageHeaderProps} /><PlantDiagnosisPage {...commonProps} /></>;
+      case 'PLANT_DIAGNOSIS': return <><PageHeader title="AI作物診断" onBack={() => handleNavigate('TOOLS')} {...pageHeaderProps} /><PlantDiagnosisPage {...commonProps} /></>;
       case 'SETTINGS': return (
         <>
           <PageHeader title="設定" {...pageHeaderProps} />
@@ -3407,15 +3472,24 @@ const App: React.FC = () => {
         {renderPage()}
       </main>
       
-      <footer className="fixed bottom-0 left-0 right-0 bg-white shadow-top z-20 flex justify-around items-center h-16">
-        {/* Nav Buttons */}
-        <button onClick={() => handleNavigate('HISTORY')} className="flex flex-col items-center text-gray-600 hover:text-green-600 w-1/5"><CalendarIcon className="h-6 w-6 mb-1"/> <span className="text-xs">カレンダー</span></button>
-        <button onClick={() => handleNavigate('DASHBOARD')} className="flex flex-col items-center text-gray-600 hover:text-green-600 w-1/5"><HomeIcon className="h-6 w-6 mb-1"/> <span className="text-xs">ホーム</span></button>
-        <button onClick={() => handleNavigate('NEW_RECORD')} className="flex flex-col items-center text-white -mt-8 w-1/5">
-            <div className="bg-green-600 rounded-full p-4 shadow-lg border-4 border-white"><NewRecordIcon className="h-8 w-8"/></div>
-        </button>
-        <button onClick={() => setIsCameraOptionModalOpen(true)} className="flex flex-col items-center text-gray-600 hover:text-green-600 w-1/5"><CameraIcon className="h-6 w-6 mb-1"/> <span className="text-xs">カメラ</span></button>
-        <button onClick={handleEmailClick} className="flex flex-col items-center text-gray-600 hover:text-green-600 w-1/5"><MailIcon className="h-6 w-6 mb-1"/> <span className="text-xs">メール</span></button>
+      <footer className="fixed bottom-0 left-0 right-0 bg-[#fbf2e9] shadow-top z-20 flex justify-around items-center h-12">
+        <button onClick={handleEmailClick} className="flex flex-col items-center justify-center text-stone-700 hover:text-amber-900 w-1/5 h-full"><PaperPlaneIcon className="h-6 w-6 mb-1"/> <span className="text-xs">メール</span></button>
+        <button onClick={() => handleNavigate('HISTORY')} className="flex flex-col items-center justify-center text-stone-700 hover:text-amber-900 w-1/5 h-full"><CalendarIcon className="h-6 w-6 mb-1"/> <span className="text-xs">カレンダー</span></button>
+        
+        {/* Prominent Home Button */}
+        <div className="w-1/5 h-full flex justify-center items-center">
+          <button 
+            onClick={() => handleNavigate('DASHBOARD')} 
+            className="flex flex-col items-center justify-center text-green-800 font-bold bg-[#f2e6d9] hover:bg-[#e9d9c8] h-16 w-16 rounded-full transform -translate-y-4 shadow-lg border-4 border-lime-50 transition-all duration-200"
+            aria-label="ホーム"
+          >
+            <HomeIcon className="h-7 w-7 mb-0.5"/> 
+            <span className="text-xs leading-none">ホーム</span>
+          </button>
+        </div>
+
+        <button onClick={() => handleNavigate('TOOLS')} className="flex flex-col items-center justify-center text-stone-700 hover:text-amber-900 w-1/5 h-full"><ToolsIcon className="h-6 w-6 mb-1"/> <span className="text-xs">ツール</span></button>
+        <button onClick={() => setIsCameraOptionModalOpen(true)} className="flex flex-col items-center justify-center text-stone-700 hover:text-amber-900 w-1/5 h-full"><CameraIcon className="h-6 w-6 mb-1"/> <span className="text-xs">カメラ</span></button>
       </footer>
       
       {isDirty && (page === 'NEW_RECORD' || page === 'EDIT_RECORD') && <FloatingSaveButton onClick={() => recordPageRef.current?.handleSubmit()} />}

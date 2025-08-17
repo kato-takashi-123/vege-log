@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 
 type IconProps = {
@@ -81,9 +82,11 @@ export const DictionaryIcon: React.FC<IconProps> = ({ className }) => (
 
 export const DiggingUpIcon: React.FC<IconProps> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2 22v-3a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v3"/>
-    <path d="M12 17V11"/>
-    <path d="M12 11a4 4 0 0 1-4-4V5a4 4 0 0 1 8 0v2a4 4 0 0 1-4 4z"/>
+    <path d="M12 4V2" />
+    <path d="M10 2h4" />
+    <path d="M12 10V4" />
+    <path d="M16 10a4 4 0 1 1-8 0c0-4 4-9 4-9s4 5 4 9Z" />
+    <path d="M12 22v-3" />
   </svg>
 );
 
@@ -93,9 +96,17 @@ export const ExportIcon: React.FC<IconProps> = ({ className }) => (
   </svg>
 );
 
+export const FaucetIcon: React.FC<IconProps> = ({ className }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 14.5A1.5 1.5 0 0 1 5.5 16h13a1.5 1.5 0 0 1 0 3h-13A1.5 1.5 0 0 1 4 17.5v-3Z"/>
+    <path d="M16 10V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v5"/>
+    <path d="M8 10h8"/>
+  </svg>
+);
+
 export const FertilizingIcon: React.FC<IconProps> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 22a7 7 0 0 0 7-7h-4a3 3 0 0 0-3-3V2Z"/><path d="M12 2a7 7 0 0 0-7 7h4a3 3 0 0 1 3 3v10Z"/>
+    <path d="M12 22s8-4.5 8-11.5A8 8 0 0 0 4 10.5C4 17.5 12 22 12 22z"/>
   </svg>
 );
 
@@ -147,174 +158,175 @@ export const HistoryIcon: React.FC<IconProps> = ({ className }) => (
 
 export const HomeIcon: React.FC<IconProps> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
   </svg>
 );
 
 export const ImageIcon: React.FC<IconProps> = ({ className }) => (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-        <circle cx="8.5" cy="8.5" r="1.5"></circle>
-        <polyline points="21 15 16 10 5 21"></polyline>
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
     </svg>
 );
 
 export const LeafIcon: React.FC<IconProps> = ({ className }) => (
-    <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M11 20A7 7 0 0 1 4 13H2a10 10 0 0 0 10 10z"/><path d="M12 2a7 7 0 0 1 7 7h2a10 10 0 0 0-10-10z"/>
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 12c0-5-4-10-10-10S4 7 4 12s5 10 10 10c0-5 6-5 6-10z"/>
+        <path d="M10 12c-4 0-4 6 0 6"/>
     </svg>
 );
 
 export const LogoutIcon: React.FC<IconProps> = ({ className }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-    <polyline points="16 17 21 12 16 7"/>
-    <line x1="21" y1="12" x2="9" y2="12"/>
-  </svg>
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+        <polyline points="16 17 21 12 16 7"/>
+        <line x1="21" y1="12" x2="9" y2="12"/>
+    </svg>
 );
 
 export const MailIcon: React.FC<IconProps> = ({ className }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect width="20" height="16" x="2" y="4" rx="2" />
-    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-  </svg>
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+        <polyline points="22,6 12,13 2,6"/>
+    </svg>
 );
 
 export const MicrophoneIcon: React.FC<IconProps> = ({ className }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-    <line x1="12" y1="19" x2="12" y2="22"></line>
-  </svg>
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+        <line x1="8" y1="23" x2="16" y2="23"/>
+    </svg>
 );
 
 export const MoundIcon: React.FC<IconProps> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2 20h20"/>
-    <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8"/>
+    <path d="M3 20h18"/>
+    <path d="M8 20a4 4 0 0 0 8 0"/>
   </svg>
 );
 
 export const NewRecordIcon: React.FC<IconProps> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><line x1="12" y1="18" x2="12" y2="12" /><line x1="9" y1="15" x2="15" y2="15" />
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <line x1="12" y1="18" x2="12" y2="12"/>
+    <line x1="9" y1="15" x2="15" y2="15"/>
   </svg>
 );
 
 export const ObservationIcon: React.FC<IconProps> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="3"/><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+    <circle cx="12" cy="12" r="3"/>
   </svg>
 );
 
 export const OpenAiIcon: React.FC<IconProps> = ({ className }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path d="M21.282 10.982a3.966 3.966 0 00-.012-3.955 4.013 4.013 0 00-3.483-2.02 4.013 4.013 0 00-3.484 2.02 3.966 3.966 0 00-.011 3.955l-2.73 4.728a4.013 4.013 0 003.495 6.005 4.013 4.013 0 003.495-6.005l-2.73-4.728z" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M2.718 13.018a3.966 3.966 0 00.011 3.955 4.013 4.013 0 003.484 2.02 4.013 4.013 0 003.483-2.02 3.966 3.966 0 00.012-3.955l2.73-4.728a4.013 4.013 0 00-3.495-6.005A4.013 4.013 0 002.718 7.01l2.73 4.728z" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M9.529 4.228a9.408 9.408 0 014.942 0l.446.216a9.408 9.408 0 004.228 2.512l.49.124a9.408 9.408 0 012.728 4.016l.164.482a9.408 9.408 0 01-1.464 4.885l-.33.473a9.408 9.408 0 00-2.31 4.316l-.082.493a9.408 9.408 0 01-4.706 2.748l-.48.11a9.408 9.408 0 00-4.942 0l-.446-.216a9.408 9.408 0 01-4.228-2.512l-.49-.124a9.408 9.408 0 00-2.728-4.016l-.164-.482a9.408 9.408 0 001.464-4.885l.33-.473a9.408 9.408 0 012.31-4.316l.082-.493a9.408 9.408 0 004.706-2.748l.48-.11z" stroke="currentColor"/>
+        <path d="M11.999 8.243a3.75 3.75 0 100 7.5 3.75 3.75 0 000-7.5z" stroke="currentColor"/>
+    </svg>
 );
 
 export const PaperPlaneIcon: React.FC<IconProps> = ({ className }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="22" y1="2" x2="11" y2="13" />
-    <polygon points="22 2 15 22 11 13 2 9 22 2" />
-  </svg>
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+    </svg>
 );
 
 export const PestControlIcon: React.FC<IconProps> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M10 12.5a2.5 2.5 0 1 1 5 0 2.5 2.5 0 1 1-5 0Z"/><path d="M12 18a5.999 5.999 0 0 0-5.636-4H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h.111A6 6 0 0 0 12 22a6 6 0 0 0 6.89-7H19a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-1.364A5.999 5.999 0 0 0 12 18Z"/>
-    <path d="M16 10.5c0-2.3-1.55-4.26-3.69-4.85.24-.65.39-1.33.39-2.02 0-2.83-2.69-5.13-6-5.13S.7 2.8.7 5.63c0 .69.15 1.37.39 2.02C-1.55 6.24-3 8.2-3 10.5c0 2.37 1.64 4.36 3.82 4.88.2.05.4.08.6.12H12h.58c.2-.04.4-.07.6-.12A5.131 5.131 0 0 0 16 10.5Z"/>
+    <path d="M12 2a4 4 0 0 0-4 4v2H4v2h16V8h-4V6a4 4 0 0 0-4-4z"/><path d="M4 12h16v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="m9 16 6-4"/><path d="m15 16-6-4"/>
   </svg>
 );
 
 export const PestSearchIcon: React.FC<IconProps> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/>
-    <path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6Z"/>
-    <path d="M12 20v-9"/><path d="M6.53 9C4.6 9.64 3 11.41 3 13.5V16"/><path d="M20.97 9c-.07-.85-.28-1.67-.63-2.43"/>
-    <path d="M3 16h.01"/><path d="M21 16h.01"/>
+    <circle cx="10" cy="10" r="7"/>
+    <path d="m15 15 5 5"/>
+    <path d="M12 10a2 2 0 1 0-4 0v2"/>
+    <path d="m9 8 3 3"/>
   </svg>
 );
 
 export const PlantingIcon: React.FC<IconProps> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 2v2a6 6 0 0 1 6 6h2c0-4.42-3.58-8-8-8z"/><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M12 22v-7"/><path d="M8 22h8"/>
+    <path d="M12 21v-5"/><path d="M8 21h8"/><path d="M12 16a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4h0a4 4 0 0 1 4 4v5a4 4 0 0 1-4 4Z"/>
   </svg>
 );
 
 export const PollinationIcon: React.FC<IconProps> = ({ className }) => (
-    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="3"></circle>
-        <path d="M12 2v2"></path>
-        <path d="M12 20v2"></path>
-        <path d="m4.93 4.93 1.41 1.41"></path>
-        <path d="m17.66 17.66 1.41 1.41"></path>
-        <path d="M2 12h2"></path>
-        <path d="M20 12h2"></path>
-        <path d="m4.93 19.07 1.41-1.41"></path>
-        <path d="m17.66 6.34 1.41-1.41"></path>
-    </svg>
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="2" />
+    <path d="M12 2v2" /><path d="M12 20v2" />
+    <path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" />
+    <path d="M2 12h2" /><path d="M20 12h2" />
+    <path d="m4.93 19.07 1.41-1.41" /><path d="m17.66 6.34 1.41-1.41" />
+  </svg>
 );
 
 export const RecipeIcon: React.FC<IconProps> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2 6h20"/><path d="M2 12h20"/><path d="M2 18h20"/>
-    <path d="M6 3v18"/><path d="M18 3v18"/>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <line x1="16" y1="13" x2="8" y2="13"/>
+    <line x1="16" y1="17" x2="8" y2="17"/>
+    <polyline points="10 9 9 9 8 9"/>
   </svg>
 );
 
 export const RefreshIcon: React.FC<IconProps> = ({ className }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 2v6h6"/><path d="M21 12A9 9 0 0 0 6 5.3L3 8"/>
-    <path d="M21 22v-6h-6"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/>
-  </svg>
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="23 4 23 10 17 10"/>
+        <polyline points="1 20 1 14 7 14"/>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/>
+        <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>
+    </svg>
 );
 
 export const RootTreatmentIcon: React.FC<IconProps> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 22V2"/>
-    <path d="M12 22a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/>
-    <path d="m16 8-4-4-4 4"/>
+    <path d="M12 2v2" /><path d="M12 8v2" />
+    <path d="M12 14v2" /><path d="M12 20v2" />
+    <path d="m15 6-3-3-3 3" /><path d="m9 18 3 3 3-3" />
   </svg>
 );
 
 export const SaveIcon: React.FC<IconProps> = ({ className }) => (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-        <polyline points="17 21 17 13 7 13 7 21"></polyline>
-        <polyline points="7 3 7 8 15 8"></polyline>
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+        <polyline points="17 21 17 13 7 13 7 21"/>
+        <polyline points="7 3 7 8 15 8"/>
     </svg>
-);
-
-export const SeedingIcon: React.FC<IconProps> = ({ className }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 22a2 2 0 0 0 2-2V20a2 2 0 0 0-4 0v.01a2 2 0 0 0 2 1.99z"/><path d="M12 2a2 2 0 0 0-2 2v.01a2 2 0 0 0 4 0V4a2 2 0 0 0-2-2z"/>
-    <path d="M20 12a2 2 0 0 0-2-2h-.01a2 2 0 0 0 0 4H20a2 2 0 0 0-2-2z"/><path d="M4 12a2 2 0 0 0-2-2H2a2 2 0 0 0 0 4h.01A2 2 0 0 0 4 12z"/>
-  </svg>
 );
 
 export const SeedlingCareIcon: React.FC<IconProps> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 20V4"/><path d="M16 4H8"/><path d="M12 4a4 4 0 0 1 4 4v0a4 4 0 0 1-4 4h0a4 4 0 0 1-4-4v0a4 4 0 0 1 4-4z"/>
-    <path d="M4 20h16"/>
+    <path d="M12 20v-8"/><path d="M12 12c-3.33 0-5-1.67-5-5a5 5 0 0 1 10 0c0 3.33-1.67 5-5 5z"/><path d="M17 20h-5"/>
+  </svg>
+);
+
+export const SeedingIcon: React.FC<IconProps> = ({ className }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="M2 12h2" /><path d="M20 12h2" />
   </svg>
 );
 
 export const SettingsIcon: React.FC<IconProps> = ({ className }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="3"></circle>
-    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-  </svg>
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
 );
 
 export const SyncIcon: React.FC<IconProps> = ({ className }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-    <path d="M3 7v6h6"/>
-    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-    <path d="M21 17v-6h-6"/>
-  </svg>
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 2"/><path d="M22 12.5a10 10 0 0 1-18.8 4.3L2.5 22"/>
+    </svg>
 );
 
 export const ToolsIcon: React.FC<IconProps> = ({ className }) => (
@@ -325,53 +337,37 @@ export const ToolsIcon: React.FC<IconProps> = ({ className }) => (
 
 export const TrashIcon: React.FC<IconProps> = ({ className }) => (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="3 6 5 6 21 6"></polyline>
-        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-        <line x1="10" y1="11" x2="10" y2="17"></line>
-        <line x1="14" y1="11" x2="14" y2="17"></line>
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
     </svg>
 );
 
 export const TrueLeavesIcon: React.FC<IconProps> = ({ className }) => (
-    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 20V4"/>
-        <path d="M12 4H8c-2.21 0-4 1.79-4 4s1.79 4 4 4h4"/>
-        <path d="M12 4h4c2.21 0 4 1.79 4 4s-1.79 4-4 4h-4"/>
-    </svg>
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22V12"/><path d="M12 12H8a4 4 0 1 0 0-8h4"/><path d="M12 12h4a4 4 0 1 1 0-8h-4"/>
+  </svg>
 );
 
 export const VegetableBasketIcon: React.FC<IconProps> = ({ className }) => (
-    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 10.37A6.45 6.45 0 0 1 5.55 4H5.4a3.39 3.39 0 0 0-3.2 2.45L2 9.42"/>
-        <path d="M12 10.37A6.45 6.45 0 0 0 18.45 4h.15a3.39 3.39 0 0 1 3.2 2.45L22 9.42"/>
-        <path d="M12 10.37V20a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-1.12"/>
-        <path d="m14 22-2-1.67-2 1.67"/>
-        <path d="M12 10.37V20a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-1.12"/>
-        <path d="M18.45 4a6.45 6.45 0 0 0-13 0"/>
-        <path d="M22 9.42a6.44 6.44 0 0 1-10 5.46A6.44 6.44 0 0 1 2 9.42"/>
-    </svg>
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2a4 4 0 0 0-4 4v2H4l2 12h12l2-12h-4V6a4 4 0 0 0-4-4z"/><path d="M8 6h8"/>
+  </svg>
 );
 
 export const VegetableSearchIcon: React.FC<IconProps> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 10.37A6.45 6.45 0 0 1 5.55 4H5.4a3.39 3.39 0 0 0-3.2 2.45L2 9.42c0 3.51 2.82 6.36 6.33 6.36H11"/>
-    <path d="M18.45 4a6.45 6.45 0 0 0-13 0"/>
-    <path d="M22 9.42c0 3.51-2.82 6.36-6.33 6.36H13"/>
-    <circle cx="17" cy="17" r="3"/>
-    <line x1="21" y1="21" x2="19" y2="19"/>
+    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M11 8a3 3 0 0 0-3 3v2"/>
   </svg>
 );
 
 export const WateringIcon: React.FC<IconProps> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 14v8"/><path d="M12 4a2 2 0 0 1 2 2v3h4a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-6V6a2 2 0 0 1-2-2z"/>
-    <path d="M6 14v8"/><path d="M2 14h8"/>
+    <path d="M12 12v8"/><path d="M15 12v8"/><path d="M9 12v8"/><path d="M18 10c0-4.42-3-8-6-8s-6 3.58-6 8c0 1.05.21 2.05.6 3h10.8c.39-.95.6-1.95.6-3Z"/>
   </svg>
 );
 
 export const WeatherIcon: React.FC<IconProps> = ({ className }) => (
-    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
-        <path d="M22 10a3 3 0 0 0-3-3h-2.207a5.502 5.502 0 0 0-10.702.5"/>
-    </svg>
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+  </svg>
 );
