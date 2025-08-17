@@ -1,16 +1,18 @@
 
 
+
+
+
 import React, { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
-import { CultivationRecord, WorkType, ObservationStatus, PackageInfo, CropStage, WeatherInfo, PestInfo, VegetableInfo, PlantDiagnosis } from './types';
+import { CultivationRecord, WorkType, ObservationStatus, PackageInfo, CropStage, WeatherInfo, PestInfo, VegetableInfo, PlantDiagnosis, FertilizerDetail } from './types';
 import { getDailyQuote, getVegetableInfo, searchPestInfo, extractTextFromImage, analyzeSeedPackage, searchCommonPestsForCrop, searchRecipes, generateRecipeImage, AiSearchResult, searchGardeningTerm, getWeatherInfo, ApiRateLimitError, diagnosePlantHealth } from './services/geminiService';
-import * as GoogleDriveService from './services/googleDriveService';
 import {
   SeedingIcon, PlantingIcon, FertilizingIcon, HarvestingIcon, PestControlIcon, WateringIcon, SeedlingCareIcon,
-  CalculatorIcon, ExportIcon, NewRecordIcon, CalendarIcon, CameraIcon, BackIcon, LeafIcon,
-  HomeIcon, ToolsIcon, VegetableSearchIcon, PestSearchIcon, RecipeIcon, MailIcon, MicrophoneIcon, ImageIcon, ChevronLeftIcon, ChevronRightIcon,
-  HamburgerIcon, CloseIcon, SettingsIcon, TrashIcon, OpenAiIcon, RefreshIcon, RootTreatmentIcon, DiggingUpIcon, GerminationIcon, TrueLeavesIcon, PollinationIcon,
-  DictionaryIcon, WeatherIcon, PaperPlaneIcon, SaveIcon, LogoutIcon, MoundIcon, VegetableBasketIcon, GoogleDriveIcon, CloudUploadIcon, CloudDownloadIcon, SyncIcon, FileImportIcon,
-  CloudIcon, ObservationIcon, FaucetIcon
+  CalculatorIcon, ExportIcon, CalendarIcon, CameraIcon, BackIcon, LeafIcon, FileImportIcon,
+  HomeIcon, ToolsIcon, VegetableSearchIcon, PestSearchIcon, PinchingIcon, RecipeIcon, MicrophoneIcon, ImageIcon, ChevronLeftIcon, ChevronRightIcon,
+  HamburgerIcon, CloseIcon, SettingsIcon, TrashIcon, RefreshIcon, RootTreatmentIcon, DiggingUpIcon, GerminationIcon, TrueLeavesIcon, PollinationIcon,
+  DictionaryIcon, WeatherIcon, PaperPlaneIcon, SaveIcon, LogoutIcon, MoundIcon, VegetableBasketIcon,
+  ObservationIcon, FaucetIcon, ExternalLinkIcon
 } from './components/Icons';
 
 
@@ -26,24 +28,25 @@ const WORK_TYPE_DETAILS = {
 
 const CROP_STAGE_DETAILS = {
   [CropStage.Seeding]: { label: '播種', Icon: SeedingIcon, color: 'bg-yellow-500' },
-  [CropStage.SeedlingStart]: { label: '育苗開始', Icon: SeedlingCareIcon, color: 'bg-lime-500' },
+  [CropStage.SeedlingCare]: { label: '育苗', Icon: SeedlingCareIcon, color: 'bg-lime-500' },
   [CropStage.Germination]: { label: '発芽', Icon: GerminationIcon, color: 'bg-green-300' },
-  [CropStage.TrueLeaves]: { label: '本葉が出る', Icon: TrueLeavesIcon, color: 'bg-green-400' },
-  [CropStage.Planting]: { label: '定植開始', Icon: PlantingIcon, color: 'bg-green-500' },
+  [CropStage.TrueLeaves]: { label: '本葉', Icon: TrueLeavesIcon, color: 'bg-green-400' },
+  [CropStage.Planting]: { label: '定植', Icon: PlantingIcon, color: 'bg-green-500' },
+  [CropStage.Pinching]: { label: '摘心', Icon: PinchingIcon, color: 'bg-teal-500' },
   [CropStage.Pollination]: { label: '受粉', Icon: PollinationIcon, color: 'bg-pink-400' },
   [CropStage.Harvesting]: { label: '収穫', Icon: HarvestingIcon, color: 'bg-orange-500' },
 };
 
 const OBSERVATION_STATUS_DETAILS = {
   [ObservationStatus.Normal]: { label: '正常' },
-  [ObservationStatus.Anomaly]: { label: '異常あり' },
+  [ObservationStatus.Anomaly]: { label: '低成長' },
   [ObservationStatus.Pest]: { label: '病害虫' },
   [ObservationStatus.Deformation]: { label: '変色・変形' },
 };
 
 const FERTILIZERS = {
-  'M-Plus-1': { name: 'TOMATEC M-Plus 1', component: '窒素、リン酸、カリウム', usage: '成長促進、栄養補給' },
-  'M-Plus-2': { name: 'TOMATEC M-Plus 2', component: 'カルシウム、微量要素', usage: '品質向上、病害耐性強化' },
+  'M-Plus-1': { name: 'M-plus 1号', component: '窒素、リン酸、カリウム', usage: '成長促進、栄養補給' },
+  'M-Plus-2': { name: 'M-plus 2号', component: 'カルシウム、微量要素', usage: '品質向上、病害耐性強化' },
 };
 
 const CULTIVATION_LANES = [
@@ -73,18 +76,11 @@ type AppSettings = {
   teamName: string;
   startOfWeek: 'sunday' | 'monday';
   enableAiFeatures: boolean;
-  enableGoogleSearch: boolean;
-  selectedModel: string;
   enablePumiceWash: boolean;
-  enableCloudSync?: boolean;
-  lastSyncDate?: string;
-  cloudProvider?: 'google' | 'icloud';
-  syncMode: 'auto' | 'manual';
   weatherPrefecture: string;
 };
 
 const SETTINGS_KEY = 'veggieLogSettings';
-const VALID_MODELS = ['gemini-2.5-flash', 'gpt-4o'];
 
 type ApiCallHandler = <T>(apiCall: () => Promise<T>) => Promise<T | undefined>;
 
@@ -97,6 +93,9 @@ type RecordPageProps = {
   onDirtyChange: (isDirty: boolean) => void;
   onConfirmationRequest: (config: Omit<ConfirmationModalProps, 'isOpen' | 'onCancel'>) => void;
   handleApiCall: ApiCallHandler;
+  records: CultivationRecord[];
+  onClearFutureRecords: (lane: string, date: string) => void;
+  onValidationError?: (message: string) => void;
 };
 
 type RecordPageHandle = {
@@ -256,14 +255,17 @@ const useVoiceRecognition = ({ onResult }: { onResult: (text: string) => void })
 const exportRecordsToCsv = (records: CultivationRecord[]): string => {
     const headers = [
         'ID', '日付', '作物名', '栽培レーン', '作業種類', '作物の状況', 
-        '観察記録', '病害虫詳細', 'メモ',
+        '観察記録', '病害虫詳細', 'メモ', 'M-plus 1号 倍率', 'M-plus 2号 倍率'
     ];
 
-    const workTypeLabels = Object.values(WorkType).map(t => WORK_TYPE_DETAILS[t].label);
-    const cropStageLabels = Object.values(CropStage).map(s => CROP_STAGE_DETAILS[s].label);
-    const observationStatusLabels = Object.values(ObservationStatus).map(o => OBSERVATION_STATUS_DETAILS[o].label);
-
     const rows = records.map(r => {
+        const details = Array.isArray(r.fertilizingDetails) 
+            ? r.fertilizingDetails 
+            : r.fertilizingDetails ? [r.fertilizingDetails] : [];
+        
+        const mPlus1 = details.find(d => d.fertilizerType === 'M-Plus-1');
+        const mPlus2 = details.find(d => d.fertilizerType === 'M-Plus-2');
+
         const row = {
             id: r.id,
             date: r.date,
@@ -273,7 +275,9 @@ const exportRecordsToCsv = (records: CultivationRecord[]): string => {
             cropStages: r.cropStages?.map(cs => CROP_STAGE_DETAILS[cs]?.label).join(', ') || '',
             observationStatus: r.observationStatus?.map(os => OBSERVATION_STATUS_DETAILS[os]?.label).join(', ') || '',
             pestDetails: r.pestDetails?.join(', ') || '',
-            memo: r.memo.replace(/"/g, '""'), // Escape double quotes
+            memo: r.memo.replace(/"/g, '""'),
+            mPlus1Dilution: mPlus1?.dilution?.toString() || '',
+            mPlus2Dilution: mPlus2?.dilution?.toString() || '',
         };
         return Object.values(row).map(val => `"${val}"`).join(',');
     });
@@ -338,15 +342,12 @@ const getWeatherIllustration = (weather: string, className: string = "w-full h-f
 const ApiErrorModal: React.FC<{
   isOpen: boolean;
   error: any;
-  currentModel: string;
   onRetry: () => void;
-  onSwitchAi: () => void;
   onStopAi: () => void;
-}> = ({ isOpen, error, currentModel, onRetry, onSwitchAi, onStopAi }) => {
+}> = ({ isOpen, error, onRetry, onStopAi }) => {
   if (!isOpen) return null;
   
   const errorMessage = error?.originalError?.error?.message || error?.message || '不明なAPIエラーが発生しました。';
-  const nextModel = currentModel.includes('gemini') ? 'GPT-4o' : 'Gemini 2.5';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
@@ -361,9 +362,6 @@ const ApiErrorModal: React.FC<{
           <button onClick={onRetry} className="w-full bg-green-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-700">
             再試行する
           </button>
-          <button onClick={onSwitchAi} className="w-full bg-blue-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-blue-700">
-            {nextModel}に切り替えて再試行
-          </button>
           <button onClick={onStopAi} className="w-full bg-gray-500 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-gray-600">
             AIの利用を停止する
           </button>
@@ -372,29 +370,6 @@ const ApiErrorModal: React.FC<{
     </div>
   );
 };
-
-const AiModelSelector: React.FC<{
-  settings: AppSettings;
-  onSettingsChange: (newSettings: AppSettings) => void;
-  disabled?: boolean;
-}> = ({ settings, onSettingsChange, disabled }) => (
-    <div className="flex items-center gap-1 text-xs">
-        <span className={disabled ? "text-gray-400" : "text-gray-500"}>AI:</span>
-        <select
-            value={settings.selectedModel}
-            onChange={e => onSettingsChange({ ...settings, selectedModel: e.target.value })}
-            disabled={disabled}
-            className="text-xs p-1 border-0 rounded bg-gray-100 hover:bg-gray-200 focus:ring-1 focus:ring-green-500 disabled:bg-gray-200 disabled:cursor-not-allowed"
-        >
-            <optgroup label="Google">
-                <option value="gemini-2.5-flash">Gemini 2.5</option>
-            </optgroup>
-            <optgroup label="OpenAI">
-                <option value="gpt-4o">GPT-4o</option>
-            </optgroup>
-        </select>
-    </div>
-);
 
 const FloatingSaveButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
   <button
@@ -603,34 +578,6 @@ const CalendarModal: React.FC<{
     </div>
   );
 };
-
-const CameraOptionModal: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  onTakePhoto: () => void;
-  onAiDiagnose: () => void;
-}> = ({ isOpen, onClose, onTakePhoto, onAiDiagnose }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xs" onClick={e => e.stopPropagation()}>
-        <h3 className="text-lg font-bold text-gray-900 text-center mb-4">カメラ</h3>
-        <div className="flex justify-around gap-4">
-          <button onClick={onTakePhoto} className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-100 transition-colors w-1/2">
-            <CameraIcon className="h-8 w-8 text-gray-700" />
-            <span className="font-semibold text-gray-700">写真を撮る</span>
-          </button>
-          <button onClick={onAiDiagnose} className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-100 transition-colors w-1/2">
-            <ObservationIcon className="h-8 w-8 text-gray-700" />
-            <span className="font-semibold text-gray-700">AI診断</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 
 type PageProps = {
   setPage: (page: string, params?: any) => void;
@@ -850,26 +797,6 @@ const ExportModal: React.FC<{
 
 
 const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
-  const [username, setUsername] = useState('demo_user');
-  const [password, setPassword] = useState('password');
-  const { isListening: isListeningUser, startListening: startListeningUser } = useVoiceRecognition({ onResult: setUsername });
-  const { isListening: isListeningPass, startListening: startListeningPass } = useVoiceRecognition({ onResult: setPassword });
-
-  const GoogleIcon = () => (
-    <svg className="h-5 w-5 mr-3" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-      <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
-      <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/>
-      <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.223 0-9.657-3.356-11.303-8H6.306C9.656 39.663 16.318 44 24 44z"/>
-      <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C42.012 35.426 44 30.039 44 24c0-1.341-.138-2.65-.389-3.917z"/>
-    </svg>
-  );
-
-  const AppleIcon = () => (
-    <svg className="h-6 w-6 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <path d="M15.226 2.288a4.91 4.91 0 00-2.284 1.158 4.743 4.743 0 00-1.804 3.435c0 1.543.62 3.033 1.63 4.227.994 1.18 1.57 2.113 1.57 3.264 0 1.15-.55 2.113-1.57 3.238-1.022 1.2-1.63 2.69-1.63 4.215 0 .22.012.43.034.632a4.637 4.637 0 002.13 3.21a4.833 4.833 0 005.152-1.25c.982-1.127 1.547-2.03 1.547-3.132 0-1.15-.548-2.112-1.547-3.237-1.01-1.15-1.57-2.113-1.57-3.263 0-1.15.548-2.08 1.57-3.238a4.833 4.833 0 001.62-3.662c0-1.66-1.01-3.696-3.008-4.52zM12.75 6.012c.012-.22.034-.43.034-.633a3.12 3.12 0 00-1.01-2.298c-.4-.442-.8-.663-1.187-.663-.733 0-1.62.63-2.666 1.886a8.84 8.84 0 00-1.85 4.215c0 .41.06.81.18 1.198.4-.087.8-.13 1.21-.13.8 0 1.568.163 2.302.488a4.34 4.34 0 011.62-3.228.06.06 0 01-.01-.033z"/>
-    </svg>
-  );
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-lime-50 p-4">
       <div className="text-center mb-8">
@@ -878,53 +805,16 @@ const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
         <p className="text-green-700 mt-2">栽培記録アプリ</p>
       </div>
       <div className="w-full max-w-sm bg-white p-8 rounded-2xl shadow-lg">
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-gray-600">ユーザー名</label>
-            <div className="relative mt-1">
-              <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 pr-12" />
-              <button onClick={startListeningUser} className={`absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-full ${isListeningUser ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200'}`}><MicrophoneIcon className="h-5 w-5" /></button>
-            </div>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-600">パスワード</label>
-            <div className="relative mt-1">
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 pr-12" />
-              <button onClick={startListeningPass} className={`absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-full ${isListeningPass ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200'}`}><MicrophoneIcon className="h-5 w-5" /></button>
-            </div>
-          </div>
+        <h2 className="text-xl font-semibold text-center text-gray-700">ようこそ！</h2>
+        <p className="text-sm text-center text-gray-500 mt-2">あなたの栽培活動を記録しましょう。</p>
+        <div className="mt-8">
           <button
             onClick={onLogin}
             className="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 transition-colors duration-300 text-lg"
           >
-            ログイン
+            アプリをはじめる
           </button>
         </div>
-
-        <div className="my-6 flex items-center">
-          <div className="flex-grow border-t border-gray-300"></div>
-          <span className="flex-shrink mx-4 text-gray-500 text-sm">または</span>
-          <div className="flex-grow border-t border-gray-300"></div>
-        </div>
-        
-        <div className="space-y-3">
-          <button
-            onClick={onLogin}
-            className="w-full flex items-center justify-center bg-white text-gray-700 font-medium py-2.5 px-4 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors duration-300"
-          >
-            <GoogleIcon />
-            Googleでログイン
-          </button>
-          <button
-            onClick={onLogin}
-            className="w-full flex items-center justify-center bg-black text-white font-medium py-2.5 px-4 rounded-lg hover:bg-gray-800 transition-colors duration-300"
-          >
-            <AppleIcon />
-            Appleでサインイン
-          </button>
-        </div>
-
-        <p className="text-xs text-center text-gray-500 mt-8">これはデモです。任意のログイン方法で動作します。</p>
       </div>
     </div>
   );
@@ -935,9 +825,8 @@ const Dashboard: React.FC<{
   records: CultivationRecord[];
   onLaneClick: (lane: string) => void;
   settings: AppSettings;
-  onSettingsChange: (settings: AppSettings) => void;
   handleApiCall: ApiCallHandler;
-}> = ({ records, onLaneClick, settings, onSettingsChange, handleApiCall }) => {
+}> = ({ records, onLaneClick, settings, handleApiCall }) => {
   const [tip, setTip] = useState('今日の一言を読み込み中...');
   
   const today = new Date();
@@ -948,7 +837,7 @@ const Dashboard: React.FC<{
       setTip('AIが今日の一句を考えています...');
       const fetchQuote = async () => {
         try {
-          const quote = await handleApiCall(() => getDailyQuote(settings.selectedModel));
+          const quote = await handleApiCall(() => getDailyQuote());
           if (quote) {
             setTip(quote);
           } else {
@@ -963,7 +852,7 @@ const Dashboard: React.FC<{
     } else {
       setTip("AI機能は設定で無効になっています。");
     }
-  }, [settings.enableAiFeatures, settings.selectedModel, handleApiCall]);
+  }, [settings.enableAiFeatures, handleApiCall]);
 
 
   const laneStatus = useMemo(() => {
@@ -981,10 +870,7 @@ const Dashboard: React.FC<{
   return (
     <div className="p-4 md:p-6 space-y-6">
       <div className="bg-white p-3 rounded-xl shadow-md border border-green-200">
-        <div className="flex justify-between items-center mb-2">
-            <h3 className="font-semibold text-green-800">今日の一言</h3>
-            {settings.enableAiFeatures && <AiModelSelector settings={settings} onSettingsChange={onSettingsChange} />}
-        </div>
+        <h3 className="font-semibold text-green-800 mb-2">今日の一言</h3>
         <p className="text-gray-600 italic text-lg whitespace-nowrap overflow-hidden text-ellipsis">{tip}</p>
       </div>
 
@@ -1068,7 +954,7 @@ const ImageSourceModal: React.FC<{
 };
 
 
-const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord, onBack, initialData, settings, onSettingsChange, onDirtyChange, onConfirmationRequest, handleApiCall }, ref) => {
+const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord, onBack, initialData, settings, onSettingsChange, onDirtyChange, onConfirmationRequest, handleApiCall, records, onClearFutureRecords, onValidationError }, ref) => {
   const [recordId, setRecordId] = useState(initialData?.id || new Date().toISOString());
   
   const [cropName, setCropName] = useState(initialData?.cropName || '');
@@ -1082,12 +968,29 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
   const [photo, setPhoto] = useState<string | null>(initialData?.photoBase64 || null);
   const [seedPackageFront, setSeedPackageFront] = useState<string | null>(initialData?.seedPackagePhotoFront || null);
   const [seedPackageBack, setSeedPackageBack] = useState<string | null>(initialData?.seedPackagePhotoBack || null);
-  const [error, setError] = useState('');
   const [recordDate, setRecordDate] = useState(initialData?.date || toISODateString(new Date()));
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isOcrLoading, setIsOcrLoading] = useState<string | null>(null);
   const [imageSourceModal, setImageSourceModal] = useState<{ open: boolean; side: 'front' | 'back' } | null>(null);
 
+  const initialFertilizerDetails = initialData?.fertilizingDetails;
+  const [fertilizingDetails, setFertilizingDetails] = useState<FertilizerDetail[]>(
+      initialFertilizerDetails 
+      ? (Array.isArray(initialFertilizerDetails) ? initialFertilizerDetails : [initialFertilizerDetails as any]) 
+      : []
+  );
+
+  const [dilutionButtons, setDilutionButtons] = useState<Record<string, string>>(() => {
+    const initialState: Record<string, string> = {};
+    const details = initialFertilizerDetails ? (Array.isArray(initialFertilizerDetails) ? initialFertilizerDetails : [initialFertilizerDetails as any]) : [];
+    details.forEach(detail => {
+      const optionExists = ['200', '400', '600', '800', '1000'].includes(String(detail.dilution));
+      initialState[detail.fertilizerType] = optionExists ? String(detail.dilution) : 'custom';
+    });
+    return initialState;
+  });
+
+  const dilutionOptions = ['200', '400', '600', '800', '1000'];
 
   const [packageInfo, setPackageInfo] = useState<PackageInfo | null>(initialData?.aiPackageAnalysis || null);
   const [pestInfo, setPestInfo] = useState<string[] | null>(initialData?.aiPestInfo || null);
@@ -1110,6 +1013,11 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
   const showPestDetails = observationStatus.includes(ObservationStatus.Pest);
 
   useEffect(() => {
+    const initialFertilizerDetailsValue = initialData?.fertilizingDetails;
+    const initialFertilizerArray = initialFertilizerDetailsValue 
+      ? (Array.isArray(initialFertilizerDetailsValue) ? initialFertilizerDetailsValue : [initialFertilizerDetailsValue as any]) 
+      : [];
+
     const currentState = JSON.stringify({
       cropName: initialData?.cropName || '',
       cultivationLane: initialData?.cultivationLane || CULTIVATION_LANES[0],
@@ -1124,15 +1032,16 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
       recordDate: initialData?.date || toISODateString(new Date()),
       packageInfo: initialData?.aiPackageAnalysis || null,
       pestInfo: initialData?.aiPestInfo || null,
+      fertilizingDetails: initialFertilizerArray,
     });
     initialFormStateRef.current = currentState;
   }, [initialData]);
 
   const isDirty = useMemo(() => {
     if (!initialFormStateRef.current) return false;
-    const currentState = JSON.stringify({ cropName, cultivationLane, workTypes, cropStages, observationStatus, pestDetails, memo, photo, seedPackageFront, seedPackageBack, recordDate, packageInfo, pestInfo });
+    const currentState = JSON.stringify({ cropName, cultivationLane, workTypes, cropStages, observationStatus, pestDetails, memo, photo, seedPackageFront, seedPackageBack, recordDate, packageInfo, pestInfo, fertilizingDetails });
     return initialFormStateRef.current !== currentState;
-  }, [cropName, cultivationLane, workTypes, cropStages, observationStatus, pestDetails, memo, photo, seedPackageFront, seedPackageBack, recordDate, packageInfo, pestInfo]);
+  }, [cropName, cultivationLane, workTypes, cropStages, observationStatus, pestDetails, memo, photo, seedPackageFront, seedPackageBack, recordDate, packageInfo, pestInfo, fertilizingDetails]);
 
   useEffect(() => {
     onDirtyChange(isDirty);
@@ -1173,6 +1082,24 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
       }
   };
 
+  const handleFertilizerToggle = (type: 'M-Plus-1' | 'M-Plus-2') => {
+    setFertilizingDetails(prev => {
+      const existing = prev.find(d => d.fertilizerType === type);
+      if (existing) {
+        return prev.filter(d => d.fertilizerType !== type);
+      } else {
+        setDilutionButtons(b => ({ ...b, [type]: '400' }));
+        return [...prev, { fertilizerType: type, dilution: 400 }];
+      }
+    });
+  };
+
+  const handleFertilizerDilutionChange = (type: 'M-Plus-1' | 'M-Plus-2', newDilution: number) => {
+    setFertilizingDetails(prev =>
+      prev.map(d => (d.fertilizerType === type ? { ...d, dilution: newDilution } : d))
+    );
+  };
+
   const handleStopAnalysis = () => {
     stopAnalysisRef.current = true;
     setIsAnalyzingPackage(false);
@@ -1191,11 +1118,11 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
     const data = base64Image.split(',')[1];
 
     try {
-        const ocrText = await handleApiCall(() => extractTextFromImage(mimeType, data, settings.selectedModel));
+        const ocrText = await handleApiCall(() => extractTextFromImage(mimeType, data));
         if (stopAnalysisRef.current || !ocrText) return;
 
         if (ocrText && ocrText !== "テキストの抽出に失敗しました。") {
-            const info = await handleApiCall(() => analyzeSeedPackage(ocrText, settings.selectedModel));
+            const info = await handleApiCall(() => analyzeSeedPackage(ocrText));
             if (stopAnalysisRef.current || !info) return;
             
             setPackageInfo(info);
@@ -1203,7 +1130,7 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
             const nameToSearch = cropName || info?.productName;
             if (nameToSearch) {
                 setIsSearchingPests(true);
-                const pests = await handleApiCall(() => searchCommonPestsForCrop(nameToSearch, settings.selectedModel));
+                const pests = await handleApiCall(() => searchCommonPestsForCrop(nameToSearch));
                 if (stopAnalysisRef.current || !pests) return;
                 setPestInfo(pests);
             }
@@ -1219,7 +1146,7 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
         setIsAnalyzingPackage(false);
         setIsSearchingPests(false);
     }
-  }, [cropName, settings.selectedModel, handleApiCall]);
+  }, [cropName, handleApiCall]);
 
   
   const handleUpdateAnalysis = () => {
@@ -1263,7 +1190,7 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
     setIsOcrLoading(fieldName);
     try {
       const part = await fileToGenerativePart(file);
-      const text = await handleApiCall(() => extractTextFromImage(part.mimeType, part.data, settings.selectedModel));
+      const text = await handleApiCall(() => extractTextFromImage(part.mimeType, part.data));
       if (text && text !== "テキストの抽出に失敗しました。") {
         fieldSetter(current => current ? `${current} ${text}` : text);
       } else if(text) {
@@ -1316,10 +1243,11 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
   const handleSubmit = () => {
     const errorMessage = validateAndGetRecordData().error;
     if (errorMessage) {
-      setError(errorMessage);
+      if (onValidationError) {
+        onValidationError(errorMessage);
+      }
       return;
     }
-    setError('');
     onSaveRecord(getRecordData());
   };
   
@@ -1345,6 +1273,7 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
     aiPackageAnalysis: packageInfo || undefined,
     aiPestInfo: pestInfo || undefined,
     pestDetails: showPestDetails && pestDetails.length > 0 ? pestDetails : undefined,
+    fertilizingDetails: workTypes.includes(WorkType.Fertilizing) && fertilizingDetails.length > 0 ? fertilizingDetails : undefined,
   });
 
   useImperativeHandle(ref, () => ({
@@ -1353,6 +1282,44 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
     handleSubmit: handleSubmit,
   }));
 
+  const resetForm = useCallback(() => {
+    setRecordId(new Date().toISOString());
+    setCropName('');
+    setWorkTypes([]);
+    setCropStages([]);
+    setObservationStatus([]);
+    setPestDetails([]);
+    setCustomPest('');
+    setMemo('');
+    setPhoto(null);
+    setSeedPackageFront(null);
+    setSeedPackageBack(null);
+    setPackageInfo(null);
+    setPestInfo(null);
+    setFertilizingDetails([]);
+    setDilutionButtons({});
+    // cultivationLane and recordDate are intentionally not reset
+  }, []);
+
+  const handleClearClick = () => {
+    const startDate = parseDateString(recordDate);
+    startDate.setHours(0, 0, 0, 0);
+
+    const recordsToDeleteCount = records.filter(r => {
+        const rDate = parseDateString(r.date);
+        return r.cultivationLane === cultivationLane && rDate >= startDate;
+    }).length;
+    
+    onConfirmationRequest({
+        title: '記録のクリア確認',
+        message: `レーン「${cultivationLane}」に残っている、本日（${recordDate}）以降の記録（${recordsToDeleteCount}件）をすべて削除し、新しい作物の記録を開始します。\n\n過去の記録は削除されません。\nよろしいですか？`,
+        confirmText: 'はい、クリアする',
+        onConfirm: () => {
+            onClearFutureRecords(cultivationLane, recordDate);
+            resetForm();
+        },
+    });
+  };
 
   return (
     <>
@@ -1386,7 +1353,7 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
       <div className="bg-yellow-50 p-6 rounded-xl shadow-md">
         <div className="space-y-4">
           <div className="flex gap-4">
-            <div className="w-1/2">
+            <div className="w-2/3">
               <label className="text-sm font-medium text-gray-700">作業日</label>
               <button 
                 onClick={() => setIsCalendarOpen(true)} 
@@ -1395,7 +1362,7 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
                 {recordDate} ({['日', '月', '火', '水', '木', '金', '土'][recordDateObj.getDay()]})
               </button>
             </div>
-            <div className="w-1/2">
+            <div className="w-1/3">
               <label className="text-sm font-medium text-gray-700">栽培レーン</label>
               <select value={cultivationLane} onChange={e => setCultivationLane(e.target.value)} className="mt-1 w-full p-3 border border-gray-300 rounded-lg bg-white">
                 {CULTIVATION_LANES.map(lane => <option key={lane} value={lane}>{lane}</option>)}
@@ -1404,12 +1371,23 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700">作物の名前（例：ミニトマト）</label>
-            <div className="relative mt-1">
-              <input type="text" value={cropName} onChange={e => setCropName(e.target.value)} placeholder="何を育てていますか？" className="w-full p-3 border border-gray-300 rounded-lg pr-12" />
-              <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
-                 <button onClick={startListeningCropName} disabled={!settings.enableAiFeatures} className={`p-2 rounded-full ${isListeningCropName ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200'} disabled:opacity-50 disabled:cursor-not-allowed`}><MicrophoneIcon className="h-5 w-5" /></button>
-              </div>
+            <label className="text-sm font-medium text-gray-700">
+              <span className="text-red-500 mr-1">*</span>作物の名前（例：ミニトマト）
+            </label>
+            <div className="flex items-center gap-2 mt-1">
+                <div className="relative flex-grow">
+                    <input type="text" value={cropName} onChange={e => setCropName(e.target.value)} placeholder="何を育てていますか？" className="w-full p-3 border border-gray-300 rounded-lg pr-12" />
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
+                        <button onClick={startListeningCropName} disabled={!settings.enableAiFeatures} className={`p-2 rounded-full ${isListeningCropName ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200'} disabled:opacity-50 disabled:cursor-not-allowed`}><MicrophoneIcon className="h-5 w-5" /></button>
+                    </div>
+                </div>
+                <button 
+                    onClick={handleClearClick}
+                    className="p-3 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors shrink-0"
+                    title="このレーンと日付以降の記録をクリア"
+                >
+                    <CloseIcon className="h-5 w-5" />
+                </button>
             </div>
           </div>
           
@@ -1419,9 +1397,6 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
                 <label className="text-sm font-medium text-gray-700">種のパッケージ写真とAI解析（任意）</label>
                  {(seedPackageFront || seedPackageBack) && (
                     <div className="flex items-center gap-2">
-                         <div className="flex items-center gap-1 text-xs">
-                          <AiModelSelector settings={settings} onSettingsChange={onSettingsChange} />
-                        </div>
                         <button onClick={handleUpdateAnalysis} disabled={!seedPackageBack} title="AI解析を再実行" className="p-1 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed">
                             <RefreshIcon className="h-5 w-5" />
                         </button>
@@ -1578,6 +1553,64 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
             </div>
           </div>
 
+          {workTypes.includes(WorkType.Fertilizing) && (
+              <div className="bg-blue-50 p-4 rounded-lg space-y-4 fade-in border border-blue-200">
+                <label className="text-sm font-medium text-gray-700">液肥の詳細</label>
+                {Object.entries(FERTILIZERS).map(([key, { name }]) => {
+                  const type = key as 'M-Plus-1' | 'M-Plus-2';
+                  const detail = fertilizingDetails.find(d => d.fertilizerType === type);
+                  const isSelected = !!detail;
+                  
+                  return (
+                    <div key={type} className="bg-white p-3 rounded-lg border">
+                      <button
+                        onClick={() => handleFertilizerToggle(type)}
+                        className={`w-full flex justify-between items-center p-2 rounded-md text-sm font-semibold transition-colors ${isSelected ? 'bg-green-100 text-green-800' : 'bg-gray-100 hover:bg-gray-200'}`}
+                      >
+                        <span>{name}</span>
+                        <div className={`w-5 h-5 rounded-full border-2 ${isSelected ? 'bg-green-500 border-green-600' : 'border-gray-400'}`}></div>
+                      </button>
+                      
+                      {isSelected && detail && (
+                        <div className="mt-3 space-y-2 fade-in">
+                          <label className="block text-xs font-medium text-gray-600">希釈倍率（倍）</label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {dilutionOptions.map(opt => (
+                              <button
+                                key={opt}
+                                onClick={() => {
+                                  setDilutionButtons(b => ({ ...b, [type]: opt }));
+                                  handleFertilizerDilutionChange(type, parseInt(opt, 10));
+                                }}
+                                className={`p-2 rounded-lg text-xs transition-colors ${dilutionButtons[type] === opt ? 'bg-green-600 text-white font-semibold' : 'bg-gray-100 hover:bg-gray-200'}`}
+                              >
+                                {`${opt}倍`}
+                              </button>
+                            ))}
+                            <button
+                              onClick={() => setDilutionButtons(b => ({ ...b, [type]: 'custom' }))}
+                              className={`p-2 rounded-lg text-xs transition-colors ${dilutionButtons[type] === 'custom' ? 'bg-green-600 text-white font-semibold' : 'bg-gray-100 hover:bg-gray-200'}`}
+                            >
+                              カスタム
+                            </button>
+                          </div>
+                          {dilutionButtons[type] === 'custom' && (
+                            <input
+                              type="number"
+                              value={detail.dilution}
+                              onChange={e => handleFertilizerDilutionChange(type, parseInt(e.target.value, 10) || 0)}
+                              className="mt-2 w-full p-2 border border-gray-300 rounded-lg text-sm"
+                              placeholder="倍率を入力"
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+          )}
+
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">作物の状況（複数選択可）</label>
             <div className="grid grid-cols-4 gap-2">
@@ -1682,8 +1715,6 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
               </div>
             </div>
           </div>
-          
-          {error && <p className="text-red-500 text-sm text-center">{error}</p>}
         </div>
       </div>
     </div>
@@ -1713,7 +1744,21 @@ const RecordCard: React.FC<{ record: CultivationRecord; onClick: () => void }> =
                     <div className="flex flex-wrap gap-1">
                       {workTypesToDisplay.map(type => {
                         const details = WORK_TYPE_DETAILS[type as WorkType];
-                        return <span key={type} className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">{details?.label || type}</span>;
+                        let label = details?.label || type;
+
+                        if (type === WorkType.Fertilizing) {
+                            const detailsArray = record.fertilizingDetails 
+                              ? (Array.isArray(record.fertilizingDetails) ? record.fertilizingDetails : [record.fertilizingDetails])
+                              : [];
+                            
+                            if (detailsArray.length > 0) {
+                              const detailsText = detailsArray.map(d => 
+                                `${FERTILIZERS[d.fertilizerType].name.replace('M-plus ', '')}:${d.dilution}倍`
+                              ).join(', ');
+                              label = `${label} (${detailsText})`;
+                            }
+                        }
+                        return <span key={type} className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">{label}</span>;
                       })}
                     </div>
                   </div>
@@ -1979,8 +2024,9 @@ const ToolsPage: React.FC<{ setPage: (page: string) => void }> = ({ setPage }) =
 
 const CalculatorPage: React.FC<PageProps> = ({ setPage, records }) => {
   const [fertilizer, setFertilizer] = useState<'M-Plus-1' | 'M-Plus-2'>('M-Plus-1');
-  const [waterAmount, setWaterAmount] = useState('2');
-  const [dilution, setDilution] = useState('500');
+  const [waterAmount, setWaterAmount] = useState('8');
+  const [dilution, setDilution] = useState('400');
+  const [selectedDilution, setSelectedDilution] = useState('400');
   const [result, setResult] = useState(0);
 
   useEffect(() => {
@@ -1996,30 +2042,69 @@ const CalculatorPage: React.FC<PageProps> = ({ setPage, records }) => {
 
   const capsNeeded = result > 0 ? (result / PET_BOTTLE_CAP_ML).toFixed(1) : 0;
   
+  const dilutionOptions = ['200', '400', '600', '800', '1000', 'custom'];
+
+  const handleDilutionSelect = (option: string) => {
+    setSelectedDilution(option);
+    if (option !== 'custom') {
+      setDilution(option);
+    }
+  };
+  
   return (
     <div className="p-4 space-y-4">
       <div className="bg-white p-4 rounded-xl shadow-md space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700">液肥の種類</label>
-          <select value={fertilizer} onChange={e => setFertilizer(e.target.value as any)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-white">
-            <option value="M-Plus-1">{FERTILIZERS['M-Plus-1'].name}</option>
-            <option value="M-Plus-2">{FERTILIZERS['M-Plus-2'].name}</option>
-          </select>
-          <p className="text-xs text-gray-500 mt-1">{FERTILIZERS[fertilizer].usage}</p>
+          <label className="block text-sm font-medium text-gray-700 mb-2">液肥の種類</label>
+          <div className="grid grid-cols-2 gap-2">
+            {Object.entries(FERTILIZERS).map(([key, { name }]) => (
+              <button
+                key={key}
+                onClick={() => setFertilizer(key as 'M-Plus-1' | 'M-Plus-2')}
+                className={`p-2 rounded-lg text-sm transition-colors ${fertilizer === key ? 'bg-green-600 text-white font-semibold' : 'bg-gray-100 hover:bg-gray-200'}`}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+          <div className="text-xs text-gray-600 mt-2 bg-gray-50 p-2 rounded-md">
+            <p><strong>使用目的:</strong> {FERTILIZERS[fertilizer].usage}</p>
+            <p className="mt-1"><strong>主な成分:</strong> {FERTILIZERS[fertilizer].component}</p>
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">水の量（リットル）</label>
-          <input type="number" value={waterAmount} onChange={e => setWaterAmount(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" placeholder="例: 2" />
+          <input type="number" value={waterAmount} onChange={e => setWaterAmount(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" placeholder="例: 8" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">希釈倍率（倍）</label>
-          <input type="number" value={dilution} onChange={e => setDilution(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" placeholder="例: 500" />
+          <label className="block text-sm font-medium text-gray-700 mb-2">希釈倍率（倍）</label>
+          <div className="grid grid-cols-3 gap-2">
+            {dilutionOptions.map(opt => (
+              <button
+                key={opt}
+                onClick={() => handleDilutionSelect(opt)}
+                className={`p-2 rounded-lg text-sm transition-colors ${selectedDilution === opt ? 'bg-green-600 text-white font-semibold' : 'bg-gray-100 hover:bg-gray-200'}`}
+              >
+                {opt === 'custom' ? 'カスタム' : `${opt}倍`}
+              </button>
+            ))}
+          </div>
+          {selectedDilution === 'custom' && (
+            <input
+              type="number"
+              value={dilution}
+              onChange={e => setDilution(e.target.value)}
+              className="mt-2 w-full p-2 border border-gray-300 rounded-lg"
+              placeholder="倍率を入力"
+            />
+          )}
         </div>
       </div>
       <div className="bg-green-100 p-4 rounded-xl shadow-md text-center">
         <p className="text-sm font-medium text-green-800">必要な液肥の量</p>
         <p className="text-4xl font-bold text-green-700 my-2">{result.toFixed(2)}<span className="text-lg ml-1">ml</span></p>
         <p className="text-green-600">ペットボトルのキャップ 約 <span className="font-bold">{capsNeeded}</span> 杯分</p>
+        <p className="text-xs text-green-700 mt-1">（スクリュー線の上ラインで約5ml）</p>
       </div>
     </div>
   );
@@ -2046,7 +2131,7 @@ const RecipeSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, han
     setImageUrls({});
     
     try {
-      const result = await handleApiCall(() => searchRecipes(searchQuery, settings.selectedModel));
+      const result = await handleApiCall(() => searchRecipes(searchQuery));
       if (result) {
           const parsed = JSON.parse(result.text);
           setRecipes(parsed.recipes || []);
@@ -2057,14 +2142,14 @@ const RecipeSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, han
     } finally {
       setIsLoading(false);
     }
-  }, [settings.selectedModel, handleApiCall]);
+  }, [handleApiCall]);
   
   useEffect(() => {
     if (recipes.length > 0) {
         recipes.forEach(async (recipe, index) => {
             if (recipe.imageQuery) {
                 try {
-                    const imageUrl = await handleApiCall(() => generateRecipeImage(recipe.imageQuery, settings.selectedModel));
+                    const imageUrl = await handleApiCall(() => generateRecipeImage(recipe.imageQuery));
                     if (imageUrl) {
                         setImageUrls(prev => ({ ...prev, [index]: imageUrl }));
                     }
@@ -2074,7 +2159,7 @@ const RecipeSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, han
             }
         });
     }
-  }, [recipes, settings.selectedModel, handleApiCall]);
+  }, [recipes, handleApiCall]);
 
   const handleCropButtonClick = (cropName: string) => {
     setQuery(cropName);
@@ -2084,10 +2169,7 @@ const RecipeSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, han
   return (
     <div className="p-4 space-y-4">
       <div className="bg-white p-4 rounded-xl shadow-md">
-        <div className="flex justify-between items-center mb-2">
-            <h3 className="font-semibold text-gray-800">レシピ検索</h3>
-            <AiModelSelector settings={settings} onSettingsChange={onSettingsChange} disabled={isLoading} />
-        </div>
+        <h3 className="font-semibold text-gray-800 mb-2">レシピ検索</h3>
         <div className="flex gap-2">
           <div className="relative flex-grow">
             <input 
@@ -2137,14 +2219,35 @@ const RecipeSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, han
               )}
             </div>
             <div className="p-4">
-              <h4 className="font-bold text-lg text-gray-800">{recipe.recipeName}</h4>
-              <p className="text-sm text-gray-600 mt-1">{recipe.description}</p>
-              <div className="mt-3">
-                <h5 className="font-semibold text-sm text-gray-700">主な材料</h5>
-                <ul className="list-disc list-inside text-sm text-gray-600 mt-1">
-                  {recipe.ingredients.map((ing: string, i: number) => <li key={i}>{ing}</li>)}
-                </ul>
-              </div>
+                <h4 className="font-bold text-lg text-gray-800">{recipe.recipeName}</h4>
+                <p className="text-sm text-gray-600 mt-1">{recipe.description}</p>
+                
+                <div className="flex mt-3">
+                    <div className="w-2/5 pr-2">
+                        <h5 className="font-semibold text-sm text-gray-700">主な材料</h5>
+                        <ul className="list-disc list-outside pl-4 text-sm text-gray-600 mt-1 space-y-0.5">
+                            {recipe.ingredients.map((ing: string, i: number) => <li key={i}>{ing}</li>)}
+                        </ul>
+                    </div>
+                    <div className="w-3/5 pl-2 border-l border-gray-200">
+                         <h5 className="font-semibold text-sm text-gray-700">作り方の要約</h5>
+                        <div className="text-sm text-gray-600 mt-1">
+                           <FormattedContent content={recipe.instructionsSummary || ''} />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-4">
+                    <a
+                        href={`https://www.google.com/search?q=${encodeURIComponent(recipe.recipeName + " レシピ")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-2 w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                        <ExternalLinkIcon className="h-5 w-5" />
+                        <span>Webで詳細を見る</span>
+                    </a>
+                </div>
             </div>
           </div>
         ))}
@@ -2171,7 +2274,7 @@ const VegetableSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, 
     setIsLoading(true);
     setResult(null);
     try {
-      const info = await handleApiCall(() => getVegetableInfo(searchQuery, settings.selectedModel));
+      const info = await handleApiCall(() => getVegetableInfo(searchQuery));
       if (info) setResult(info);
     } catch (e) {
       console.error(e);
@@ -2179,7 +2282,7 @@ const VegetableSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, 
     } finally {
       setIsLoading(false);
     }
-  }, [settings.selectedModel, handleApiCall]);
+  }, [handleApiCall]);
   
   const handleCropButtonClick = (cropName: string) => {
     setQuery(cropName);
@@ -2196,10 +2299,7 @@ const VegetableSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, 
   return (
     <div className="p-4 space-y-4">
       <div className="bg-white p-4 rounded-xl shadow-md">
-         <div className="flex justify-between items-center mb-2">
-            <h3 className="font-semibold text-gray-800">野菜の育て方検索</h3>
-            <AiModelSelector settings={settings} onSettingsChange={onSettingsChange} disabled={isLoading}/>
-        </div>
+         <h3 className="font-semibold text-gray-800 mb-2">野菜の育て方検索</h3>
         <div className="flex gap-2">
            <div className="relative flex-grow">
             <input type="text" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch(query)} placeholder="野菜名を入力" className="w-full p-2 border border-gray-300 rounded-lg pr-10" disabled={isLoading} />
@@ -2236,7 +2336,7 @@ const VegetableSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, 
             <p><strong>植え付け:</strong> {result.cultivationCalendar.planting}</p>
             <p><strong>収穫:</strong> {result.cultivationCalendar.harvest}</p>
           </InfoSection>
-          <InfoSection title="施肥計画 (TOMATEC M-Plus)">
+          <InfoSection title="施肥計画 (M-plus)">
             <p><strong>元肥:</strong> <FormattedContent content={result.fertilizationPlan.baseFertilizer} /></p>
             <p className="mt-2"><strong>追肥:</strong> <FormattedContent content={result.fertilizationPlan.topDressing} /></p>
           </InfoSection>
@@ -2287,7 +2387,7 @@ const PestSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handl
     setResult(null);
     try {
       const imagePart = image ? await fileToGenerativePart(image.file) : undefined;
-      const info = await handleApiCall(() => searchPestInfo(query, settings.selectedModel, imagePart));
+      const info = await handleApiCall(() => searchPestInfo(query, imagePart));
       if (info) setResult(info);
     } catch (e) {
       console.error(e);
@@ -2295,7 +2395,7 @@ const PestSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handl
     } finally {
       setIsLoading(false);
     }
-  }, [query, image, settings.selectedModel, handleApiCall]);
+  }, [query, image, handleApiCall]);
 
   const SummaryCard: React.FC<{title: string; content: string}> = ({title, content}) => (
     <div className="bg-lime-50 p-3 rounded-lg">
@@ -2316,10 +2416,7 @@ const PestSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handl
 
       <div className="p-4 space-y-4">
         <div className="bg-white p-4 rounded-xl shadow-md space-y-3">
-          <div className="flex justify-between items-center">
-              <h3 className="font-semibold text-gray-800">病害虫・症状検索</h3>
-              <AiModelSelector settings={settings} onSettingsChange={onSettingsChange} disabled={isLoading}/>
-          </div>
+          <h3 className="font-semibold text-gray-800">病害虫・症状検索</h3>
           <div className="relative">
             <textarea value={query} onChange={e => setQuery(e.target.value)} rows={2} placeholder="症状を入力 (例: 葉に白い斑点がある)" className="w-full p-2 border border-gray-300 rounded-lg pr-24" disabled={isLoading}></textarea>
              <div className="absolute right-2 top-2 flex items-center gap-1">
@@ -2373,7 +2470,7 @@ const TermSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handl
     setIsLoading(true);
     setResult(null);
     try {
-      const res = await handleApiCall(() => searchGardeningTerm(query, settings.selectedModel));
+      const res = await handleApiCall(() => searchGardeningTerm(query));
       if (res) setResult(res);
     } catch (e) {
       console.error(e);
@@ -2381,15 +2478,12 @@ const TermSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handl
     } finally {
       setIsLoading(false);
     }
-  }, [query, settings.selectedModel, handleApiCall]);
+  }, [query, handleApiCall]);
   
   return (
     <div className="p-4 space-y-4">
       <div className="bg-white p-4 rounded-xl shadow-md">
-        <div className="flex justify-between items-center mb-2">
-            <h3 className="font-semibold text-gray-800">園芸用語辞典</h3>
-            <AiModelSelector settings={settings} onSettingsChange={onSettingsChange} disabled={isLoading}/>
-        </div>
+        <h3 className="font-semibold text-gray-800 mb-2">園芸用語辞典</h3>
         <div className="flex gap-2">
           <div className="relative flex-grow">
             <input type="text" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()} placeholder="例: 摘心" className="w-full p-2 border border-gray-300 rounded-lg pr-10" disabled={isLoading} />
@@ -2543,7 +2637,7 @@ const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleAp
             setError(null);
             setWeather(null);
             try {
-                const data = await handleApiCall(() => getWeatherInfo({ name }, settings.selectedModel));
+                const data = await handleApiCall(() => getWeatherInfo({ name }));
                 if (data) {
                     setWeather(data);
                 } else {
@@ -2558,7 +2652,7 @@ const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleAp
         };
 
         fetchWeatherByName(settings.weatherPrefecture);
-    }, [settings.weatherPrefecture, settings.selectedModel, handleApiCall]);
+    }, [settings.weatherPrefecture, handleApiCall]);
     
     const getWbgtColor = (wbgt: number) => {
       if (wbgt >= 31) return { bg: 'bg-red-600', text: 'text-white', label: '危険' };
@@ -2578,13 +2672,8 @@ const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleAp
             {weather && (
               <div className="space-y-4 fade-in">
                 <div className="bg-white p-4 rounded-xl shadow-md">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-lg font-bold text-gray-800">{weather.location}</p>
-                            <p className="text-gray-600">{weather.current.weather}</p>
-                        </div>
-                        <AiModelSelector settings={settings} onSettingsChange={onSettingsChange}/>
-                    </div>
+                    <p className="text-lg font-bold text-gray-800">{weather.location}</p>
+                    <p className="text-gray-600">{weather.current.weather}</p>
                     <div className="flex items-center justify-center gap-4 my-4">
                         <div className="w-20 h-20">
                            {getWeatherIllustration(weather.current.weather, "w-full h-full")}
@@ -2638,7 +2727,6 @@ const PlantDiagnosisPage: React.FC<PageProps> = ({ settings, onSettingsChange, h
   const [image, setImage] = useState<{ file: File, preview: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<PlantDiagnosis | null>(null);
-  const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -2658,7 +2746,7 @@ const PlantDiagnosisPage: React.FC<PageProps> = ({ settings, onSettingsChange, h
     setResult(null);
     try {
       const imagePart = await fileToGenerativePart(image.file);
-      const diagnosis = await handleApiCall(() => diagnosePlantHealth(settings.selectedModel, imagePart));
+      const diagnosis = await handleApiCall(() => diagnosePlantHealth(imagePart));
       if (diagnosis) {
         setResult(diagnosis);
       }
@@ -2668,16 +2756,7 @@ const PlantDiagnosisPage: React.FC<PageProps> = ({ settings, onSettingsChange, h
     } finally {
       setIsLoading(false);
     }
-  }, [image, settings.selectedModel, handleApiCall]);
-
-  const handleSourceSelect = (source: 'camera' | 'gallery') => {
-      if (source === 'camera') {
-        cameraInputRef.current?.click();
-      } else {
-        galleryInputRef.current?.click();
-      }
-      setIsSourceModalOpen(false);
-  };
+  }, [image, handleApiCall]);
   
   const DiagnosisCard: React.FC<{ title: string; children: React.ReactNode; icon: React.FC<{className?: string}> }> = ({ title, children, icon: Icon }) => (
       <div className="bg-white p-4 rounded-xl shadow-md">
@@ -2691,43 +2770,43 @@ const PlantDiagnosisPage: React.FC<PageProps> = ({ settings, onSettingsChange, h
 
   return (
     <>
-      <ImageSourceModal
-          isOpen={isSourceModalOpen}
-          onClose={() => setIsSourceModalOpen(false)}
-          onSelect={handleSourceSelect}
-      />
       <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={handleImageChange} className="hidden" />
       <input type="file" accept="image/*" ref={galleryInputRef} onChange={handleImageChange} className="hidden" />
       
       <div className="p-4 space-y-4">
         <div className="bg-white p-4 rounded-xl shadow-md space-y-3">
-          <div className="flex justify-between items-center">
-              <h3 className="font-semibold text-gray-800">AI作物診断</h3>
-              <AiModelSelector settings={settings} onSettingsChange={onSettingsChange} disabled={isLoading}/>
-          </div>
+            <h3 className="font-semibold text-gray-800">AI作物診断</h3>
           
-          <div 
-            onClick={() => !image && setIsSourceModalOpen(true)}
-            className="w-full h-48 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50"
-          >
+          <div className="w-full h-48 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center p-2">
             {image ? (
-              <img src={image.preview} alt="診断対象" className="h-full w-full object-contain rounded-lg p-1" />
+              <img src={image.preview} alt="診断対象" className="h-full w-full object-contain rounded-md" />
             ) : (
-               <div className="flex flex-col items-center justify-center text-center h-full">
-                <div className="flex items-center gap-8">
-                    <div className="flex flex-col items-center gap-2 text-gray-600 font-medium">
-                        <CameraIcon className="h-10 w-10"/>
-                        <span>カメラ</span>
-                    </div>
-                    <div className="flex flex-col items-center gap-2 text-gray-600 font-medium">
-                        <ImageIcon className="h-10 w-10"/>
-                        <span>ギャラリー</span>
-                    </div>
-                </div>
-                <span className="mt-4 text-sm text-gray-500">タップして写真を選択</span>
+              <div className="flex items-center justify-around w-full h-full">
+                <button onClick={() => cameraInputRef.current?.click()} className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg hover:bg-gray-100 transition-colors w-1/2 h-full">
+                  <CameraIcon className="h-10 w-10 text-gray-700" />
+                  <span className="font-semibold text-gray-700">カメラ</span>
+                </button>
+                <div className="h-full w-px bg-gray-200"></div>
+                <button onClick={() => galleryInputRef.current?.click()} className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg hover:bg-gray-100 transition-colors w-1/2 h-full">
+                  <ImageIcon className="h-10 w-10 text-gray-700" />
+                  <span className="font-semibold text-gray-700">ギャラリー</span>
+                </button>
               </div>
             )}
           </div>
+          
+          {image && (
+            <div className="flex justify-center gap-4">
+              <button onClick={() => cameraInputRef.current?.click()} className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg text-sm">
+                <CameraIcon className="h-5 w-5"/>
+                <span>撮り直す</span>
+              </button>
+              <button onClick={() => galleryInputRef.current?.click()} className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg text-sm">
+                <ImageIcon className="h-5 w-5"/>
+                <span>別の写真を選択</span>
+              </button>
+            </div>
+          )}
 
           <button 
             onClick={handleDiagnose} 
@@ -2784,105 +2863,16 @@ const SettingsPage: React.FC<{
   onSettingsChange: (settings: AppSettings) => void;
   onLogout: () => void;
   onExport: () => void;
-  onConfirmationRequest: (config: Omit<ConfirmationModalProps, 'isOpen' | 'onCancel'>) => void;
-  records: CultivationRecord[];
-}> = ({ settings, onSettingsChange, onLogout, onExport, onConfirmationRequest, records }) => {
+  onImport: (event: React.ChangeEvent<HTMLInputElement>) => void;
+}> = ({ settings, onSettingsChange, onLogout, onExport, onImport }) => {
   const [localSettings, setLocalSettings] = useState(settings);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [googleUser, setGoogleUser] = useState<{name: string, email: string} | null>(null);
-
-  useEffect(() => {
-    const checkStatus = async () => {
-      const { isSignedIn, user } = await GoogleDriveService.checkSignInStatus();
-      if(isSignedIn && user) {
-        setGoogleUser(user);
-      }
-    };
-    checkStatus();
-  }, []);
+  const importInputRef = useRef<HTMLInputElement>(null);
   
   const handleSettingsChange = (newSettings: Partial<AppSettings>) => {
     setLocalSettings(prev => ({ ...prev, ...newSettings }));
   };
   
-  const handleGoogleSignIn = async () => {
-    try {
-      const user = await GoogleDriveService.signIn();
-      setGoogleUser(user);
-    } catch(e: any) {
-      alert(`Googleサインインに失敗しました: ${e.message}`);
-    }
-  };
-
-  const handleGoogleSignOut = async () => {
-    await GoogleDriveService.signOut();
-    setGoogleUser(null);
-  };
-  
-  const handleSync = async (direction: 'upload' | 'download') => {
-    if (localSettings.cloudProvider === 'icloud') {
-      alert('iCloud同期は現在開発中です。');
-      return;
-    }
-    
-    if (!googleUser) {
-      alert('Googleにサインインしてください。');
-      return;
-    }
-    
-    if (direction === 'upload') {
-        onConfirmationRequest({
-          title: "アップロードの確認",
-          message: "現在の全てのローカルデータをGoogle Driveにアップロードします。Drive上の既存データは上書きされますが、よろしいですか？",
-          confirmText: "はい、アップロードします",
-          confirmColor: "bg-blue-600 hover:bg-blue-700",
-          onConfirm: async () => {
-            setIsSyncing(true);
-            try {
-              const dataToUpload = { settings: localSettings, records };
-              await GoogleDriveService.uploadData(dataToUpload);
-              handleSettingsChange({ lastSyncDate: new Date().toISOString() });
-              alert('アップロードが完了しました。');
-            } catch (e: any) {
-              alert(`アップロードに失敗しました: ${e.message}`);
-            } finally {
-              setIsSyncing(false);
-            }
-          }
-        });
-    } else { // download
-        onConfirmationRequest({
-            title: "ダウンロードの確認",
-            message: "Google Driveからデータをダウンロードします。現在の全てのローカルデータは上書きされますが、よろしいですか？",
-            confirmText: "はい、ダウンロードします",
-            onConfirm: async () => {
-              setIsSyncing(true);
-              try {
-                const data = await GoogleDriveService.downloadData();
-                if (data && typeof data === 'object' && 'settings' in data && 'records' in data) {
-                  // A full app state reload is better here, but for now we update state.
-                  // This is a bit of a hack. In a real app with Redux/Context, you'd dispatch an action.
-                  alert('データの復元が完了しました。アプリをリロードしてください。');
-                  localStorage.setItem('veggieLogRecords', JSON.stringify((data as any).records));
-                  localStorage.setItem(SETTINGS_KEY, JSON.stringify((data as any).settings));
-                  handleSettingsChange({ ...((data as any).settings), lastSyncDate: new Date().toISOString() });
-                } else if (data === null) {
-                  alert('Google Driveにバックアップファイルが見つかりませんでした。');
-                } else {
-                   alert('ダウンロードしたデータの形式が正しくありません。');
-                }
-              } catch (e: any) {
-                alert(`ダウンロードに失敗しました: ${e.message}`);
-              } finally {
-                setIsSyncing(false);
-              }
-            },
-        });
-    }
-  };
-  
   useEffect(() => {
-    // This effect syncs local state changes back up to the main App state.
     onSettingsChange(localSettings);
   }, [localSettings, onSettingsChange]);
   
@@ -2918,14 +2908,6 @@ const SettingsPage: React.FC<{
             <label htmlFor="enable-ai" className="text-sm font-medium text-gray-700">AIアシスタント機能</label>
             <input type="checkbox" id="enable-ai" checked={localSettings.enableAiFeatures} onChange={e => handleSettingsChange({ enableAiFeatures: e.target.checked })} className="h-6 w-11 rounded-full bg-gray-200 after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all checked:bg-green-600 checked:after:translate-x-full focus:ring-0" />
           </div>
-          <div className={`space-y-4 ${!localSettings.enableAiFeatures && 'opacity-50'}`}>
-             <div>
-                <label className="block text-sm font-medium text-gray-700">使用するAIモデル</label>
-                <select value={localSettings.selectedModel} onChange={e => handleSettingsChange({ selectedModel: e.target.value })} disabled={!localSettings.enableAiFeatures} className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-white disabled:bg-gray-100">
-                  {VALID_MODELS.map(model => <option key={model} value={model}>{model}</option>)}
-                </select>
-             </div>
-          </div>
         </div>
       </div>
 
@@ -2938,96 +2920,27 @@ const SettingsPage: React.FC<{
           </div>
         </div>
       </div>
-
-       <div className="space-y-2">
-        <h3 className="text-lg font-bold text-gray-800">クラウド同期</h3>
-        <div className="bg-white p-4 rounded-lg shadow space-y-4">
-           <div className="space-y-3">
-              <p className="text-sm text-gray-600">記録データをクラウドにバックアップします。</p>
-              <div>
-                  <label className="block text-sm font-medium text-gray-700">同期モード</label>
-                  <div className="mt-2 flex rounded-md shadow-sm">
-                      <button
-                          onClick={() => handleSettingsChange({ syncMode: 'manual' })}
-                          className={`px-4 py-2 text-sm font-medium border rounded-l-md transition-colors w-1/2 ${localSettings.syncMode === 'manual' ? 'bg-green-600 text-white border-green-600 z-10' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
-                      >
-                          手動
-                      </button>
-                      <button
-                          onClick={() => handleSettingsChange({ syncMode: 'auto' })}
-                          className={`-ml-px px-4 py-2 text-sm font-medium border rounded-r-md transition-colors w-1/2 ${localSettings.syncMode === 'auto' ? 'bg-green-600 text-white border-green-600 z-10' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
-                      >
-                          自動
-                      </button>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">{localSettings.syncMode === 'auto' ? '記録の変更時に自動で同期します。（開発中）' : '手動でアップロード・ダウンロードを実行します。'}</p>
-              </div>
-              <div className="flex gap-4">
-                  <button
-                      onClick={() => handleSettingsChange({ cloudProvider: 'google', enableCloudSync: true })}
-                      className={`flex-1 p-4 border-2 rounded-lg flex items-center gap-3 transition-all ${localSettings.cloudProvider === 'google' ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-white hover:border-gray-400'}`}
-                  >
-                      <GoogleDriveIcon className="h-8 w-8 text-[#0f9d58]" />
-                      <div>
-                          <p className="font-semibold text-gray-800 text-left">Google Drive</p>
-                          <p className="text-xs text-gray-500 text-left">Googleアカウントで同期</p>
-                      </div>
-                  </button>
-                  <button
-                      onClick={() => handleSettingsChange({ cloudProvider: 'icloud', enableCloudSync: true })}
-                      className={`flex-1 p-4 border-2 rounded-lg flex items-center gap-3 transition-all relative ${localSettings.cloudProvider === 'icloud' ? 'border-sky-500 bg-sky-50' : 'border-gray-300 bg-white hover:border-gray-400'}`}
-                  >
-                      <CloudIcon className="h-8 w-8 text-sky-500" />
-                      <div>
-                          <p className="font-semibold text-gray-800 text-left">iCloud</p>
-                          <p className="text-xs text-gray-500 text-left">Apple IDで同期</p>
-                      </div>
-                      <span className="absolute top-1 right-1 bg-yellow-400 text-yellow-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full">開発中</span>
-                  </button>
-              </div>
-          </div>
-          {localSettings.cloudProvider === 'google' && (
-            <div className="border-t pt-4 mt-4 space-y-3">
-                {googleUser ? (
-                    <div className="flex items-center justify-between text-sm">
-                        <div>
-                            <p className="font-semibold">{googleUser.name}</p>
-                            <p className="text-gray-500 text-xs">{googleUser.email}</p>
-                        </div>
-                        <button onClick={handleGoogleSignOut} className="bg-gray-200 text-gray-700 font-semibold py-1 px-3 rounded-md text-xs hover:bg-gray-300">サインアウト</button>
-                    </div>
-                ) : (
-                    <button onClick={handleGoogleSignIn} className="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">Googleにサインイン</button>
-                )}
-                 {localSettings.lastSyncDate && <p className="text-xs text-gray-500 text-center">最終同期: {new Date(localSettings.lastSyncDate).toLocaleString()}</p>}
-                <div className="flex gap-4">
-                  <button onClick={() => handleSync('upload')} disabled={isSyncing || !googleUser} className="w-1/2 flex items-center justify-center gap-2 bg-blue-100 text-blue-800 font-semibold py-3 px-4 rounded-lg hover:bg-blue-200 disabled:opacity-50 disabled:cursor-wait">
-                      <CloudUploadIcon className="h-5 w-5"/>
-                      <span>アップロード</span>
-                  </button>
-                  <button onClick={() => handleSync('download')} disabled={isSyncing || !googleUser} className="w-1/2 flex items-center justify-center gap-2 bg-green-100 text-green-800 font-semibold py-3 px-4 rounded-lg hover:bg-green-200 disabled:opacity-50 disabled:cursor-wait">
-                      <CloudDownloadIcon className="h-5 w-5"/>
-                      <span>ダウンロード</span>
-                  </button>
-                </div>
-            </div>
-          )}
-        </div>
-      </div>
       
       <div className="space-y-2">
         <h3 className="text-lg font-bold text-gray-800">ローカルデータ管理</h3>
         <div className="bg-white p-4 rounded-lg shadow space-y-4">
-          <p className="text-sm text-gray-600">デバイスに保存されている栽培記録をCSVファイルとして書き出したり、読み込んだりします。</p>
+          <p className="text-sm text-gray-600">デバイスに保存されている栽培記録をCSVファイルとしてインポート／エクスポートします。</p>
           <div className="flex gap-4">
             <button onClick={onExport} className="flex-1 inline-flex items-center justify-center gap-2 bg-green-100 text-green-800 font-semibold py-3 px-4 rounded-lg hover:bg-green-200 transition-colors">
               <ExportIcon className="h-5 w-5"/>
               <span>エクスポート (CSV)</span>
             </button>
-            <button disabled className="flex-1 inline-flex items-center justify-center gap-2 bg-gray-100 text-gray-500 font-semibold py-3 px-4 rounded-lg cursor-not-allowed">
+            <button onClick={() => importInputRef.current?.click()} className="flex-1 inline-flex items-center justify-center gap-2 bg-blue-100 text-blue-800 font-semibold py-3 px-4 rounded-lg hover:bg-blue-200 transition-colors">
               <FileImportIcon className="h-5 w-5"/>
               <span>インポート (CSV)</span>
             </button>
+            <input
+              type="file"
+              ref={importInputRef}
+              onChange={onImport}
+              className="hidden"
+              accept=".csv"
+            />
           </div>
         </div>
       </div>
@@ -3040,7 +2953,6 @@ const SettingsPage: React.FC<{
               </button>
           </div>
        </div>
-
     </div>
   );
 };
@@ -3065,24 +2977,20 @@ const App: React.FC = () => {
   const lastApiCallRef = useRef<(() => Promise<any>) | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportModalMode, setExportModalMode] = useState<'email' | 'download'>('download');
-  const [isCameraOptionModalOpen, setIsCameraOptionModalOpen] = useState(false);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [toastMessage, setToastMessage] = useState('');
+  const [isCameraActionModalOpen, setIsCameraActionModalOpen] = useState(false);
 
   const [settings, setSettings] = useState<AppSettings>({
     teamName: 'ベジログチーム',
     startOfWeek: 'monday',
     enableAiFeatures: true,
-    enableGoogleSearch: false,
-    selectedModel: 'gemini-2.5-flash',
     enablePumiceWash: true,
-    enableCloudSync: false,
-    cloudProvider: 'google',
-    syncMode: 'manual',
     weatherPrefecture: '愛知県',
   });
 
   const recordPageRef = useRef<RecordPageHandle>(null);
   const navigationTargetRef = useRef<{ page: string; params: any } | null>(null);
+  const nativeCameraInputRef = useRef<HTMLInputElement>(null);
   
   // Load data from localStorage on initial mount
   useEffect(() => {
@@ -3122,6 +3030,11 @@ const App: React.FC = () => {
       }
     }
   }, [settings, isLoading]);
+  
+  const showToast = (message: string, duration: number = 2000) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(''), duration);
+  };
 
   const handleApiCall = useCallback(async <T,>(apiCall: () => Promise<T>): Promise<T | undefined> => {
     lastApiCallRef.current = apiCall as () => Promise<any>;
@@ -3158,6 +3071,17 @@ const App: React.FC = () => {
     setPageParams(null);
     setIsDirty(false);
   };
+
+  const handleClearFutureRecords = (lane: string, date: string) => {
+    const startDate = parseDateString(date);
+    startDate.setHours(0, 0, 0, 0);
+
+    const recordsToKeep = records.filter(record => {
+        const recordDate = parseDateString(record.date);
+        return !(record.cultivationLane === lane && recordDate >= startDate);
+    });
+    setRecords(recordsToKeep);
+  };
   
   const handleDirtyChange = useCallback((dirty: boolean) => {
     setIsDirty(dirty);
@@ -3178,7 +3102,7 @@ const App: React.FC = () => {
     if (recordPageRef.current) {
         const error = recordPageRef.current.validate();
         if (error) {
-            alert(error); // Keep the modal open
+            showToast(error);
             return;
         }
         recordPageRef.current.handleSubmit();
@@ -3204,7 +3128,14 @@ const App: React.FC = () => {
   };
 
   const handleConfirmationRequest = (config: Omit<ConfirmationModalProps, 'isOpen' | 'onCancel'>) => {
-    setConfirmationModal(config);
+    const originalOnConfirm = config.onConfirm;
+    setConfirmationModal({
+      ...config,
+      onConfirm: () => {
+        originalOnConfirm();
+        setIsConfirmationOpen(false); // Close modal after action
+      }
+    });
     setIsConfirmationOpen(true);
   };
   
@@ -3217,13 +3148,6 @@ const App: React.FC = () => {
         // Error is already handled by handleApiCall, which will re-open the modal
       }
     }
-  };
-  
-  const handleApiErrorSwitch = () => {
-    const newModel = settings.selectedModel.includes('gemini') ? 'gpt-4o' : 'gemini-2.5-flash';
-    setSettings(s => ({ ...s, selectedModel: newModel }));
-    // Wait for state to update, then retry
-    setTimeout(handleApiErrorRetry, 100);
   };
   
   const handleApiErrorStop = () => {
@@ -3320,6 +3244,102 @@ const App: React.FC = () => {
     setIsExportModalOpen(true);
   };
   
+   const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        if (!text) throw new Error("ファイルが空です。");
+
+        const workTypeMap = Object.fromEntries(Object.entries(WORK_TYPE_DETAILS).map(([key, { label }]) => [label.trim(), key as WorkType]));
+        const cropStageMap = Object.fromEntries(Object.entries(CROP_STAGE_DETAILS).map(([key, { label }]) => [label.trim(), key as CropStage]));
+        const observationStatusMap = Object.fromEntries(Object.entries(OBSERVATION_STATUS_DETAILS).map(([key, { label }]) => [label.trim(), key as ObservationStatus]));
+
+        const lines = text.trim().split('\n');
+        const headerLine = lines.shift()?.trim() || '';
+        if (!headerLine) throw new Error("CSVヘッダーが見つかりません。");
+
+        const headers = headerLine.split(',').map(h => h.replace(/"/g, '').trim());
+        const headerMap = headers.reduce((acc, h, i) => ({ ...acc, [h]: i }), {} as Record<string, number>);
+        
+        const isOldFormat = '施肥種類' in headerMap;
+        const isNewFormat = 'M-plus 1号 倍率' in headerMap;
+
+        const importedRecords: CultivationRecord[] = [];
+
+        for (const line of lines) {
+          if (line.trim() === '') continue;
+          
+          const values = line.slice(1, -1).split('","');
+          if (values.length !== headers.length) {
+              console.warn("Skipping malformed CSV line:", line);
+              continue;
+          }
+          
+          const recordData: any = {
+            id: values[headerMap['ID']],
+            date: values[headerMap['日付']],
+            cropName: values[headerMap['作物名']],
+            cultivationLane: values[headerMap['栽培レーン']],
+            workTypes: values[headerMap['作業種類']] ? values[headerMap['作業種類']].split(',').map(label => workTypeMap[label.trim()]).filter(Boolean) : [],
+            cropStages: values[headerMap['作物の状況']] ? values[headerMap['作物の状況']].split(',').map(label => cropStageMap[label.trim()]).filter(Boolean) : [],
+            observationStatus: values[headerMap['観察記録']] ? values[headerMap['観察記録']].split(',').map(label => observationStatusMap[label.trim()]).filter(Boolean) : [],
+            pestDetails: values[headerMap['病害虫詳細']] ? values[headerMap['病害虫詳細']].split(',').map(s => s.trim()).filter(Boolean) : [],
+            memo: values[headerMap['メモ']]?.replace(/""/g, '"') || '',
+            photoBase64: '',
+          };
+
+          const fertilizingDetails: FertilizerDetail[] = [];
+
+          if (isOldFormat) {
+              const fertilizerType = values[headerMap['施肥種類']] as 'M-Plus-1' | 'M-Plus-2';
+              const dilution = parseInt(values[headerMap['施肥倍率']], 10);
+              if ((fertilizerType === 'M-Plus-1' || fertilizerType === 'M-Plus-2') && !isNaN(dilution)) {
+                  fertilizingDetails.push({ fertilizerType, dilution });
+              }
+          } else if (isNewFormat) {
+              const dilution1 = parseInt(values[headerMap['M-plus 1号 倍率']], 10);
+              if (!isNaN(dilution1) && dilution1 > 0) {
+                  fertilizingDetails.push({ fertilizerType: 'M-Plus-1', dilution: dilution1 });
+              }
+              const dilution2 = parseInt(values[headerMap['M-plus 2号 倍率']], 10);
+              if (!isNaN(dilution2) && dilution2 > 0) {
+                  fertilizingDetails.push({ fertilizerType: 'M-Plus-2', dilution: dilution2 });
+              }
+          }
+
+          if (fertilizingDetails.length > 0) {
+              recordData.fertilizingDetails = fertilizingDetails;
+          }
+
+          importedRecords.push(recordData as CultivationRecord);
+        }
+
+        if (importedRecords.length === 0) throw new Error("CSVから有効な記録を読み込めませんでした。");
+
+        handleConfirmationRequest({
+          title: 'インポートの確認',
+          message: `CSVから ${importedRecords.length} 件の記録をインポートします。\n現在のすべての記録は上書きされます。よろしいですか？`,
+          confirmText: 'はい、インポートする',
+          confirmColor: 'bg-green-600 hover:bg-green-700',
+          onConfirm: () => {
+            setRecords(importedRecords);
+            showToast('インポートが完了しました。', 3000);
+          },
+        });
+
+      } catch (error: any) {
+        alert(`インポートに失敗しました: ${error.message}`);
+      } finally {
+        if (event.target) event.target.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+  
   const handleLaneSelection = (lane: string) => {
     const latestRecordForLane = records
       .filter(r => r.cultivationLane === lane)
@@ -3332,16 +3352,6 @@ const App: React.FC = () => {
     }
   };
   
-  const handleTakePhoto = () => {
-    cameraInputRef.current?.click();
-    setIsCameraOptionModalOpen(false);
-  };
-
-  const handleAiDiagnose = () => {
-    handleNavigate('PLANT_DIAGNOSIS');
-    setIsCameraOptionModalOpen(false);
-  };
-
   const handleLogin = () => {
     setIsAuthenticated(true);
     setPage('DASHBOARD');
@@ -3361,6 +3371,33 @@ const App: React.FC = () => {
   if (!isAuthenticated) {
     return <LoginPage onLogin={handleLogin} />;
   }
+  
+  const CameraActionModal: React.FC<{
+      isOpen: boolean;
+      onClose: () => void;
+      onTakePhoto: () => void;
+      onDiagnose: () => void;
+    }> = ({ isOpen, onClose, onTakePhoto, onDiagnose }) => {
+      if (!isOpen) return null;
+
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xs" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900 text-center mb-4">カメラを使用</h3>
+            <div className="flex flex-col gap-4">
+              <button onClick={onTakePhoto} className="flex flex-col items-center gap-2 p-4 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors w-full">
+                <CameraIcon className="h-8 w-8 text-gray-700" />
+                <span className="font-semibold text-gray-700">写真撮影 (端末へ保存)</span>
+              </button>
+              <button onClick={onDiagnose} className="flex flex-col items-center gap-2 p-4 rounded-lg bg-green-100 hover:bg-green-200 transition-colors w-full">
+                <ObservationIcon className="h-8 w-8 text-green-700" />
+                <span className="font-semibold text-green-700">AI診断</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
 
   const renderPage = () => {
     const commonProps = { setPage: handleNavigate, settings, onSettingsChange: setSettings, handleApiCall, records };
@@ -3382,6 +3419,8 @@ const App: React.FC = () => {
             initialData={{ cultivationLane: pageParams?.lane }}
             onDirtyChange={handleDirtyChange}
             onConfirmationRequest={handleConfirmationRequest}
+            onClearFutureRecords={handleClearFutureRecords}
+            onValidationError={showToast}
             {...commonProps}
           />
         </>
@@ -3396,6 +3435,8 @@ const App: React.FC = () => {
             initialData={records.find(r => r.id === pageParams.recordId)}
             onDirtyChange={handleDirtyChange}
             onConfirmationRequest={handleConfirmationRequest}
+            onClearFutureRecords={handleClearFutureRecords}
+            onValidationError={showToast}
             {...commonProps}
           />
         </>
@@ -3427,8 +3468,7 @@ const App: React.FC = () => {
             onSettingsChange={setSettings} 
             onLogout={handleLogout} 
             onExport={handleOpenExportModal} 
-            onConfirmationRequest={handleConfirmationRequest}
-            records={records}
+            onImport={handleFileImport}
           />
         </>
       );
@@ -3452,9 +3492,7 @@ const App: React.FC = () => {
       <ApiErrorModal
         isOpen={isApiErrorModalOpen}
         error={apiError}
-        currentModel={settings.selectedModel}
         onRetry={handleApiErrorRetry}
-        onSwitchAi={handleApiErrorSwitch}
         onStopAi={handleApiErrorStop}
       />
       <ExportModal
@@ -3463,35 +3501,29 @@ const App: React.FC = () => {
         onExport={handleExportRecords}
         mode={exportModalMode}
       />
-       <CameraOptionModal
-        isOpen={isCameraOptionModalOpen}
-        onClose={() => setIsCameraOptionModalOpen(false)}
-        onTakePhoto={handleTakePhoto}
-        onAiDiagnose={handleAiDiagnose}
+      <CameraActionModal
+        isOpen={isCameraActionModalOpen}
+        onClose={() => setIsCameraActionModalOpen(false)}
+        onTakePhoto={() => {
+          nativeCameraInputRef.current?.click();
+          setIsCameraActionModalOpen(false);
+        }}
+        onDiagnose={() => {
+          handleNavigate('PLANT_DIAGNOSIS');
+          setIsCameraActionModalOpen(false);
+        }}
       />
-       <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={(e) => {
-          if (e.target.files && e.target.files[0]) {
-              const file = e.target.files[0];
-              // This is a bit of a hack. Ideally, we'd pass this info to RecordPage.
-              // For now, let's assume we are adding a photo to a new record.
-              const newRecord = {
-                  id: new Date().toISOString(),
-                  date: toISODateString(new Date()),
-                  cropName: '',
-                  cultivationLane: CULTIVATION_LANES[0],
-                  workTypes: [],
-                  memo: 'AI診断からの写真',
-                  photoBase64: '', // will be filled by reader
-              };
-              const reader = new FileReader();
-              reader.onloadend = () => {
-                  newRecord.photoBase64 = reader.result as string;
-                  handleNavigate('NEW_RECORD', { initialData: newRecord });
-              };
-              reader.readAsDataURL(file);
-          }
-          e.target.value = ''; // Reset input
-      }} className="hidden" />
+      <input
+        ref={nativeCameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={() => {
+          // 何もしない。ユーザーは写真を端末に保存したいだけ。
+        }}
+      />
+      {toastMessage && <Toast message={toastMessage} />}
 
       <HamburgerMenu
         isOpen={isMenuOpen}
@@ -3522,7 +3554,7 @@ const App: React.FC = () => {
         </div>
 
         <button onClick={() => handleNavigate('TOOLS')} className="flex flex-col items-center justify-center text-stone-700 hover:text-amber-900 w-1/5 h-full"><ToolsIcon className="h-6 w-6 mb-1"/> <span className="text-xs">ツール</span></button>
-        <button onClick={() => setIsCameraOptionModalOpen(true)} className="flex flex-col items-center justify-center text-stone-700 hover:text-amber-900 w-1/5 h-full"><CameraIcon className="h-6 w-6 mb-1"/> <span className="text-xs">カメラ</span></button>
+        <button onClick={() => setIsCameraActionModalOpen(true)} className="flex flex-col items-center justify-center text-stone-700 hover:text-amber-900 w-1/5 h-full"><CameraIcon className="h-6 w-6 mb-1"/> <span className="text-xs">カメラ</span></button>
       </footer>
       
       {isDirty && (page === 'NEW_RECORD' || page === 'EDIT_RECORD') && <FloatingSaveButton onClick={() => recordPageRef.current?.handleSubmit()} />}

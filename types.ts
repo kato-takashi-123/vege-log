@@ -25,10 +25,11 @@ export enum WorkType {
 // NEW: 作物の状況
 export enum CropStage {
   Seeding = 'SEEDING',           // 播種
-  SeedlingStart = 'SEEDLING_START', // 育苗開始
+  SeedlingCare = 'SEEDLING_CARE', // 育苗
   Germination = 'GERMINATION',       // 発芽
-  TrueLeaves = 'TRUE_LEAVES',       // 本葉が出る
-  Planting = 'PLANTING',           // 定植開始
+  TrueLeaves = 'TRUE_LEAVES',       // 本葉
+  Planting = 'PLANTING',           // 定植
+  Pinching = 'PINCHING',           // 摘心
   Pollination = 'POLLINATION',       // 受粉
   Harvesting = 'HARVESTING',         // 収穫
 }
@@ -38,6 +39,12 @@ export enum ObservationStatus {
   Anomaly = 'ANOMALY',
   Pest = 'PEST',
   Deformation = 'DEFORMATION'
+}
+
+// RENAMED: Details for fertilizing work type
+export interface FertilizerDetail {
+  fertilizerType: 'M-Plus-1' | 'M-Plus-2';
+  dilution: number;
 }
 
 export interface CultivationRecord {
@@ -57,6 +64,7 @@ export interface CultivationRecord {
   seedPackagePhotoBack?: string;
   aiPackageAnalysis?: PackageInfo;
   aiPestInfo?: string[];
+  fertilizingDetails?: FertilizerDetail[];
 }
 
 export interface WeatherInfo {
