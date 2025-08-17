@@ -2257,14 +2257,28 @@ const PestSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handl
   const [image, setImage] = useState<{ file: File, preview: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<PestInfo | null>(null);
-
+  const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  
   const { isListening, startListening } = useVoiceRecognition({ onResult: setQuery });
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setImage({ file, preview: URL.createObjectURL(file) });
+      setResult(null);
     }
+    e.target.value = '';
+  };
+  
+  const handleSourceSelect = (source: 'camera' | 'gallery') => {
+      if (source === 'camera') {
+        cameraInputRef.current?.click();
+      } else {
+        galleryInputRef.current?.click();
+      }
+      setIsSourceModalOpen(false);
   };
 
   const handleSearch = useCallback(async () => {
@@ -2291,52 +2305,59 @@ const PestSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handl
   );
   
   return (
-    <div className="p-4 space-y-4">
-      <div className="bg-white p-4 rounded-xl shadow-md space-y-3">
-         <div className="flex justify-between items-center">
-            <h3 className="font-semibold text-gray-800">病害虫・症状検索</h3>
-            <AiModelSelector settings={settings} onSettingsChange={onSettingsChange} disabled={isLoading}/>
+    <>
+      <ImageSourceModal
+        isOpen={isSourceModalOpen}
+        onClose={() => setIsSourceModalOpen(false)}
+        onSelect={handleSourceSelect}
+      />
+      <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={handleImageChange} className="hidden" />
+      <input type="file" accept="image/*" ref={galleryInputRef} onChange={handleImageChange} className="hidden" />
+
+      <div className="p-4 space-y-4">
+        <div className="bg-white p-4 rounded-xl shadow-md space-y-3">
+          <div className="flex justify-between items-center">
+              <h3 className="font-semibold text-gray-800">病害虫・症状検索</h3>
+              <AiModelSelector settings={settings} onSettingsChange={onSettingsChange} disabled={isLoading}/>
+          </div>
+          <div className="relative">
+            <textarea value={query} onChange={e => setQuery(e.target.value)} rows={2} placeholder="症状を入力 (例: 葉に白い斑点がある)" className="w-full p-2 border border-gray-300 rounded-lg pr-24" disabled={isLoading}></textarea>
+             <div className="absolute right-2 top-2 flex items-center gap-1">
+                <button onClick={() => setIsSourceModalOpen(true)} disabled={isLoading} className="p-2 rounded-full hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"><CameraIcon className="h-5 w-5" /></button>
+                <button onClick={startListening} disabled={isLoading} className={`p-2 rounded-full ${isListening ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200'} disabled:opacity-50 disabled:cursor-not-allowed`}><MicrophoneIcon className="h-5 w-5" /></button>
+            </div>
+          </div>
+          <button onClick={handleSearch} disabled={isLoading || (!query.trim() && !image)} className="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 disabled:bg-gray-400">検索</button>
+
+          {image && (
+            <div className="relative w-24 h-24 rounded-lg overflow-hidden border">
+              <img src={image.preview} alt="upload preview" className="w-full h-full object-cover" />
+              <button onClick={() => setImage(null)} className="absolute top-0.5 right-0.5 bg-black bg-opacity-50 text-white rounded-full p-0.5"><CloseIcon className="h-4 w-4" /></button>
+            </div>
+          )}
         </div>
-        <div className="relative">
-          <textarea value={query} onChange={e => setQuery(e.target.value)} rows={2} placeholder="症状を入力 (例: 葉に白い斑点がある)" className="w-full p-2 border border-gray-300 rounded-lg pr-10" disabled={isLoading}></textarea>
-          <button onClick={startListening} disabled={isLoading} className={`absolute right-1 top-1 p-1 rounded-full ${isListening ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200'}`}><MicrophoneIcon className="h-5 w-5" /></button>
-        </div>
-        <div className="flex gap-2">
-            <label className="flex-1 w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-200 cursor-pointer">
-              <CameraIcon className="h-5 w-5"/>
-              <span>写真を追加</span>
-              <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-            </label>
-            <button onClick={handleSearch} disabled={isLoading || (!query.trim() && !image)} className="flex-1 bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 disabled:bg-gray-400">検索</button>
-        </div>
-        {image && (
-          <div className="relative w-24 h-24 rounded-lg overflow-hidden border">
-            <img src={image.preview} alt="upload preview" className="w-full h-full object-cover" />
-            <button onClick={() => setImage(null)} className="absolute top-0.5 right-0.5 bg-black bg-opacity-50 text-white rounded-full p-0.5"><CloseIcon className="h-4 w-4" /></button>
+
+        {isLoading && <div className="text-center p-4">AIが診断しています...</div>}
+
+        {result && (
+          <div className="space-y-4 fade-in">
+            <h2 className="text-2xl font-bold text-center text-red-800">{result.pestName}</h2>
+            <div className="bg-white p-4 rounded-xl shadow-md space-y-2">
+              <h3 className="text-lg font-bold text-gray-800 mb-2">概要</h3>
+              <SummaryCard title="特徴" content={result.summary.characteristics} />
+              <SummaryCard title="原因" content={result.summary.causes} />
+              <SummaryCard title="対策" content={result.summary.countermeasures} />
+            </div>
+            <div className="bg-white p-4 rounded-xl shadow-md space-y-2">
+              <h3 className="text-lg font-bold text-gray-800 mb-2">詳細情報</h3>
+              <p><strong className="font-semibold">特徴:</strong> <FormattedContent content={result.details.characteristics} /></p>
+              <p><strong className="font-semibold">原因:</strong> <FormattedContent content={result.details.causes} /></p>
+              <p><strong className="font-semibold">対策:</strong> <FormattedContent content={result.details.countermeasures} /></p>
+            </div>
           </div>
         )}
       </div>
-
-      {isLoading && <div className="text-center p-4">AIが診断しています...</div>}
-
-      {result && (
-        <div className="space-y-4 fade-in">
-          <h2 className="text-2xl font-bold text-center text-red-800">{result.pestName}</h2>
-          <div className="bg-white p-4 rounded-xl shadow-md space-y-2">
-             <h3 className="text-lg font-bold text-gray-800 mb-2">概要</h3>
-             <SummaryCard title="特徴" content={result.summary.characteristics} />
-             <SummaryCard title="原因" content={result.summary.causes} />
-             <SummaryCard title="対策" content={result.summary.countermeasures} />
-          </div>
-           <div className="bg-white p-4 rounded-xl shadow-md space-y-2">
-             <h3 className="text-lg font-bold text-gray-800 mb-2">詳細情報</h3>
-             <p><strong className="font-semibold">特徴:</strong> <FormattedContent content={result.details.characteristics} /></p>
-             <p><strong className="font-semibold">原因:</strong> <FormattedContent content={result.details.causes} /></p>
-             <p><strong className="font-semibold">対策:</strong> <FormattedContent content={result.details.countermeasures} /></p>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 };
 
@@ -2686,16 +2707,25 @@ const PlantDiagnosisPage: React.FC<PageProps> = ({ settings, onSettingsChange, h
           </div>
           
           <div 
-            onClick={() => setIsSourceModalOpen(true)}
+            onClick={() => !image && setIsSourceModalOpen(true)}
             className="w-full h-48 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50"
           >
             {image ? (
               <img src={image.preview} alt="診断対象" className="h-full w-full object-contain rounded-lg p-1" />
             ) : (
-              <>
-                <CameraIcon className="h-12 w-12 text-gray-400" />
-                <span className="mt-2 text-sm text-gray-600">タップして写真を選択</span>
-              </>
+               <div className="flex flex-col items-center justify-center text-center h-full">
+                <div className="flex items-center gap-8">
+                    <div className="flex flex-col items-center gap-2 text-gray-600 font-medium">
+                        <CameraIcon className="h-10 w-10"/>
+                        <span>カメラ</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-2 text-gray-600 font-medium">
+                        <ImageIcon className="h-10 w-10"/>
+                        <span>ギャラリー</span>
+                    </div>
+                </div>
+                <span className="mt-4 text-sm text-gray-500">タップして写真を選択</span>
+              </div>
             )}
           </div>
 
@@ -3140,6 +3170,7 @@ const App: React.FC = () => {
     } else {
       setPage(newPage);
       setPageParams(params);
+      window.scrollTo(0, 0);
     }
   };
 
@@ -3156,6 +3187,7 @@ const App: React.FC = () => {
     if (navigationTargetRef.current) {
       setPage(navigationTargetRef.current.page);
       setPageParams(navigationTargetRef.current.params);
+      window.scrollTo(0, 0);
       navigationTargetRef.current = null;
     }
   };
@@ -3166,6 +3198,7 @@ const App: React.FC = () => {
     if (navigationTargetRef.current) {
       setPage(navigationTargetRef.current.page);
       setPageParams(navigationTargetRef.current.params);
+      window.scrollTo(0, 0);
       navigationTargetRef.current = null;
     }
   };

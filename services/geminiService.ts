@@ -763,9 +763,12 @@ export const getWeatherInfo = async (location: { latitude: number; longitude: nu
     if (getProvider(model) === 'openai') {
         newWeatherInfo = await chatGptGetWeatherInfo();
     } else {
+        const now = new Date();
+        const formattedDateTime = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${now.getHours()}時${now.getMinutes()}分`;
+        
         const prompt = 'latitude' in location
-            ? `緯度${location.latitude}、経度${location.longitude}について、以下の情報をJSONで返してください。1. 現在の天気、気温（摂氏）、湿度（％）。2. 暑さ指数（WBGT、摂氏）。環境省などの公式な予報データが見つかる場合のみ数値で返し、見つからない場合はnullを返してください。3. 今日と明日の3時間ごとの天気予報（時刻、気温、降水量mm、天気概要）。4. 今日から7日間の日ごとの天気予報（日付 YYYY-MM-DD形式、曜日、最高・最低気温、天気概要）。`
-            : `「${location.name}」の主要都市について、以下の情報をJSONで返してください。1. 現在の天気、気温（摂氏）、湿度（％）。2. 暑さ指数（WBGT、摂氏）。環境省などの公式な予報データが見つかる場合のみ数値で返し、見つからない場合はnullを返してください。3. 今日と明日の3時間ごとの天気予報（時刻、気温、降水量mm、天気概要）。4. 今日から7日間の日ごとの天気予報（日付 YYYY-MM-DD形式、曜日、最高・最低気温、天気概要）。`;
+            ? `現在の日時は「${formattedDateTime}」です。緯度${location.latitude}、経度${location.longitude}の地点について、以下の情報をJSONで返してください。1. 現在の天気、気温（摂氏）、湿度（％）。2. 暑さ指数（WBGT、摂氏）。環境省などの公式な予報データが見つかる場合のみ数値で返し、見つからない場合はnullを返してください。3. 今日と明日の3時間ごとの天気予報（時刻、気温、降水量mm、天気概要）。4. 今日から7日間の日ごとの天気予報（日付 YYYY-MM-DD形式、曜日、最高・最低気温、天気概要）。`
+            : `現在の日時は「${formattedDateTime}」です。「${location.name}」の主要都市について、以下の情報をJSONで返してください。1. 現在の天気、気温（摂氏）、湿度（％）。2. 暑さ指数（WBGT、摂氏）。環境省などの公式な予報データが見つかる場合のみ数値で返し、見つからない場合はnullを返してください。3. 今日と明日の3時間ごとの天気予報（時刻、気温、降水量mm、天気概要）。4. 今日から7日間の日ごとの天気予報（日付 YYYY-MM-DD形式、曜日、最高・最低気温、天気概要）。`;
         newWeatherInfo = await geminiGetWeatherInfo(prompt, model);
     }
 
