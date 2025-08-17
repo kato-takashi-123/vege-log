@@ -1,6 +1,6 @@
 
 
-import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI, Type, GenerateContentResponse, GenerateImagesResponse } from "@google/genai";
 import { WeatherInfo, PestInfo, VegetableInfo, PlantDiagnosis } from '../types';
 
 if (!process.env.API_KEY) {
@@ -296,7 +296,7 @@ export const diagnosePlantHealth = async (image: { mimeType: string; data: strin
 export const generateRecipeImage = async (prompt: string): Promise<string> => {
   if (!prompt) return "https://via.placeholder.com/320x180.png?text=No+Prompt";
 
-  const response = await withRetry(() => ai.models.generateImages({
+  const response = await withRetry<GenerateImagesResponse>(() => ai.models.generateImages({
       model: 'imagen-3.0-generate-002',
       prompt: `a high quality, delicious looking, commercial food photography of ${prompt}`,
       config: {

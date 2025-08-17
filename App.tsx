@@ -3,6 +3,7 @@
 
 
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
 import { CultivationRecord, WorkType, ObservationStatus, PackageInfo, CropStage, WeatherInfo, PestInfo, VegetableInfo, PlantDiagnosis, FertilizerDetail } from './types';
 import { getDailyQuote, getVegetableInfo, searchPestInfo, extractTextFromImage, analyzeSeedPackage, searchCommonPestsForCrop, searchRecipes, generateRecipeImage, AiSearchResult, searchGardeningTerm, getWeatherInfo, ApiRateLimitError, diagnosePlantHealth } from './services/geminiService';
@@ -351,13 +352,13 @@ const ApiErrorModal: React.FC<{
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm text-center" onClick={e => e.stopPropagation()}>
-        <h3 className="text-lg font-bold text-red-600">APIエラー</h3>
-        <p className="mt-2 text-sm text-gray-600">AIとの通信中にエラーが発生しました。</p>
-        <div className="mt-4 text-xs text-left bg-gray-100 p-2 rounded-md overflow-auto max-h-24">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-sm text-center" onClick={e => e.stopPropagation()}>
+        <h3 className="text-lg font-bold text-red-600 dark:text-red-400">APIエラー</h3>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">AIとの通信中にエラーが発生しました。</p>
+        <div className="mt-4 text-xs text-left bg-gray-100 dark:bg-gray-700 p-2 rounded-md overflow-auto max-h-24">
             <code className="whitespace-pre-wrap break-words">{errorMessage}</code>
         </div>
-        <p className="mt-4 text-sm text-gray-600">どうしますか？</p>
+        <p className="mt-4 text-sm text-gray-600 dark:text-gray-300">どうしますか？</p>
         <div className="mt-6 flex flex-col gap-3">
           <button onClick={onRetry} className="w-full bg-green-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-700">
             再試行する
@@ -415,7 +416,7 @@ const FormattedContent: React.FC<{ content: string | string[] }> = ({ content })
         );
     }
 
-    return <div className="text-gray-700 leading-relaxed">{elements.length > 0 ? elements : <p>{rawContent}</p>}</div>;
+    return <div className="text-gray-700 dark:text-gray-300 leading-relaxed">{elements.length > 0 ? elements : <p>{rawContent}</p>}</div>;
 };
 
 const Toast: React.FC<{ message: string }> = ({ message }) => (
@@ -433,17 +434,17 @@ const SaveConfirmationModal: React.FC<{
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xs text-center" onClick={e => e.stopPropagation()}>
-        <h3 className="text-lg font-bold text-gray-900">変更の保存</h3>
-        <p className="mt-2 text-sm text-gray-600">編集中の内容が保存されていません。保存しますか？</p>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-xs text-center" onClick={e => e.stopPropagation()}>
+        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">変更の保存</h3>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">編集中の内容が保存されていません。保存しますか？</p>
         <div className="mt-6 flex flex-col gap-3">
           <button onClick={onConfirm} className="w-full bg-green-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-700 transition-colors">
             はい、保存する
           </button>
-          <button onClick={onDeny} className="w-full bg-red-100 text-red-700 font-bold py-2.5 px-4 rounded-lg hover:bg-red-200 transition-colors">
+          <button onClick={onDeny} className="w-full bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 font-bold py-2.5 px-4 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/70 transition-colors">
             いいえ、破棄する
           </button>
-          <button onClick={onClose} className="w-full text-gray-600 font-medium py-2.5 px-4 rounded-lg hover:bg-gray-100 transition-colors text-sm">
+          <button onClick={onClose} className="w-full text-gray-600 dark:text-gray-300 font-medium py-2.5 px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm">
             キャンセル
           </button>
         </div>
@@ -476,11 +477,11 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onClick={onCancel}>
-      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm text-center" onClick={e => e.stopPropagation()}>
-        <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-        <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap">{message}</p>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-sm text-center" onClick={e => e.stopPropagation()}>
+        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">{title}</h3>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{message}</p>
         <div className="mt-6 flex gap-4">
-          <button onClick={onCancel} className="w-1/2 bg-gray-200 text-gray-800 font-bold py-2.5 px-4 rounded-lg hover:bg-gray-300 transition-colors">
+          <button onClick={onCancel} className="w-1/2 bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-100 font-bold py-2.5 px-4 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">
             {cancelText}
           </button>
           <button onClick={onConfirm} className={`w-1/2 text-white font-bold py-2.5 px-4 rounded-lg transition-colors ${confirmColor}`}>
@@ -549,7 +550,7 @@ const CalendarModal: React.FC<{
         <button
           onClick={() => onSelectDate(date)}
           className={`w-9 h-9 flex items-center justify-center rounded-full text-sm transition-colors ${
-            isSelected ? 'bg-green-600 text-white font-bold' : isToday ? 'ring-2 ring-green-500' : 'hover:bg-green-100'
+            isSelected ? 'bg-green-600 text-white font-bold' : isToday ? 'ring-2 ring-green-500' : 'hover:bg-green-100 dark:hover:bg-green-800/50'
           }`}
         >
           <span className={`${isSelected ? 'text-white' : dayColor}`}>{day}</span>
@@ -560,11 +561,11 @@ const CalendarModal: React.FC<{
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl p-4 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-4 w-full max-w-sm" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-2">
-          <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-100"><ChevronLeftIcon className="h-6 w-6" /></button>
-          <h2 className="text-lg font-bold text-gray-800">{currentDisplayDate.getFullYear()}年 {currentDisplayDate.getMonth() + 1}月</h2>
-          <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-100"><ChevronRightIcon className="h-6 w-6" /></button>
+          <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><ChevronLeftIcon className="h-6 w-6" /></button>
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">{currentDisplayDate.getFullYear()}年 {currentDisplayDate.getMonth() + 1}月</h2>
+          <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><ChevronRightIcon className="h-6 w-6" /></button>
         </div>
         <div className="grid grid-cols-7 text-center">
           {weekHeaderLabels.map((day, index) => (
@@ -589,19 +590,19 @@ type PageProps = {
 };
 
 const PageHeader: React.FC<{ title: string; onBack?: () => void; onMenuClick?: () => void; }> = ({ title, onBack, onMenuClick }) => (
-    <header className="bg-cyan-100 shadow-sm sticky top-0 z-20 p-4 flex items-center justify-between h-12">
+    <header className="bg-cyan-100 dark:bg-gray-800 shadow-sm sticky top-0 z-20 p-4 flex items-center justify-between h-12">
         <div className="w-10">
             {onBack && (
-                <button onClick={onBack} className="p-2 rounded-full hover:bg-cyan-200">
-                    <BackIcon className="h-6 w-6 text-gray-700" />
+                <button onClick={onBack} className="p-2 rounded-full hover:bg-cyan-200 dark:hover:bg-gray-700">
+                    <BackIcon className="h-6 w-6 text-gray-700 dark:text-gray-300" />
                 </button>
             )}
         </div>
-        <h1 className="text-xl font-bold text-gray-800 text-center absolute left-1/2 -translate-x-1/2">{title}</h1>
+        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200 text-center absolute left-1/2 -translate-x-1/2">{title}</h1>
         <div className="flex items-center gap-1">
             {onMenuClick && (
-                <button onClick={onMenuClick} className="p-2 rounded-full hover:bg-cyan-200">
-                    <HamburgerIcon className="h-6 w-6 text-gray-700" />
+                <button onClick={onMenuClick} className="p-2 rounded-full hover:bg-cyan-200 dark:hover:bg-gray-700">
+                    <HamburgerIcon className="h-6 w-6 text-gray-700 dark:text-gray-300" />
                 </button>
             )}
         </div>
@@ -638,11 +639,11 @@ const HamburgerMenu: React.FC<{
   return (
     <div className={`fixed inset-0 z-40 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
       <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onClose}></div>
-      <div className={`absolute top-0 right-0 h-full w-72 bg-white shadow-xl transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-        <div className="flex justify-between items-center p-4 border-b">
-          <h2 className="font-bold text-lg text-gray-800">メニュー</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100">
-            <CloseIcon className="h-6 w-6 text-gray-700" />
+      <div className={`absolute top-0 right-0 h-full w-72 bg-white dark:bg-gray-900 shadow-xl transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="flex justify-between items-center p-4 border-b dark:border-gray-700">
+          <h2 className="font-bold text-lg text-gray-800 dark:text-gray-200">メニュー</h2>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+            <CloseIcon className="h-6 w-6 text-gray-700 dark:text-gray-300" />
           </button>
         </div>
         <div className="p-2 flex flex-col justify-between" style={{ height: 'calc(100% - 65px)' }}>
@@ -654,9 +655,9 @@ const HamburgerMenu: React.FC<{
                   <li key={item.name}>
                     <button
                       onClick={() => handleNavigation(item.name)}
-                      className={`w-full flex items-center gap-4 p-4 rounded-lg text-left text-base transition-colors ${isActive ? 'bg-green-100 text-green-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
+                      className={`w-full flex items-center gap-4 p-4 rounded-lg text-left text-base transition-colors ${isActive ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 font-semibold' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                     >
-                      <item.icon className={`h-6 w-6 ${isActive ? 'text-green-600' : 'text-gray-500'}`} />
+                      <item.icon className={`h-6 w-6 ${isActive ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`} />
                       <span>{item.label}</span>
                     </button>
                   </li>
@@ -664,12 +665,12 @@ const HamburgerMenu: React.FC<{
               })}
             </ul>
           </nav>
-          <div className="p-2 border-t mt-2">
+          <div className="p-2 border-t dark:border-gray-700 mt-2">
             <button
               onClick={onLogout}
-              className="w-full flex items-center gap-4 p-4 rounded-lg text-left text-base transition-colors text-red-600 hover:bg-red-50"
+              className="w-full flex items-center gap-4 p-4 rounded-lg text-left text-base transition-colors text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
             >
-              <LogoutIcon className="h-6 w-6 text-red-500" />
+              <LogoutIcon className="h-6 w-6 text-red-500 dark:text-red-400" />
               <span>ログアウト</span>
             </button>
           </div>
@@ -744,14 +745,14 @@ const ExportModal: React.FC<{
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
-        <h3 className="text-lg font-bold text-gray-900 text-center">{texts.title}</h3>
-        <p className="mt-2 text-sm text-gray-600 text-center">{texts.description}</p>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 text-center">{texts.title}</h3>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 text-center">{texts.description}</p>
         
         <div className="mt-6 text-left space-y-2 max-h-64 overflow-y-auto pr-2">
           {ranges.map(r => (
             <div key={r.value}>
-              <label className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
+              <label className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
                 <input 
                   type="radio" 
                   name="export-range" 
@@ -760,19 +761,19 @@ const ExportModal: React.FC<{
                   onChange={() => setRange(r.value)}
                   className="h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300"
                 />
-                <span className="text-base text-gray-700 font-medium">{r.label}</span>
+                <span className="text-base text-gray-700 dark:text-gray-200 font-medium">{r.label}</span>
               </label>
               {range === 'custom' && r.value === 'custom' && (
                 <div className="pl-12 pr-4 pb-2 space-y-2 fade-in">
                   <div className="flex items-center gap-2">
                     <div className="flex-1">
-                      <label className="text-xs font-medium text-gray-600">開始日</label>
-                      <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg text-sm" />
+                      <label className="text-xs font-medium text-gray-600 dark:text-gray-300">開始日</label>
+                      <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700" />
                     </div>
-                     <span className="pt-5 text-gray-500">～</span>
+                     <span className="pt-5 text-gray-500 dark:text-gray-400">～</span>
                     <div className="flex-1">
-                      <label className="text-xs font-medium text-gray-600">終了日</label>
-                      <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg text-sm" />
+                      <label className="text-xs font-medium text-gray-600 dark:text-gray-300">終了日</label>
+                      <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700" />
                     </div>
                   </div>
                 </div>
@@ -786,7 +787,7 @@ const ExportModal: React.FC<{
             {mode === 'email' ? <PaperPlaneIcon className="h-5 w-5" /> : <ExportIcon className="h-5 w-5" />}
             <span>{texts.button}</span>
           </button>
-          <button onClick={onClose} className="w-full text-gray-600 font-medium py-2.5 px-4 rounded-lg hover:bg-gray-100 transition-colors text-sm">
+          <button onClick={onClose} className="w-full text-gray-600 dark:text-gray-300 font-medium py-2.5 px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm">
             キャンセル
           </button>
         </div>
@@ -798,15 +799,15 @@ const ExportModal: React.FC<{
 
 const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-lime-50 p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-lime-50 dark:bg-gray-900 p-4">
       <div className="text-center mb-8">
         <VegetableBasketIcon className="h-20 w-20 text-green-600 mx-auto" />
-        <h1 className="text-4xl font-bold text-green-800 mt-4">ベジログ</h1>
-        <p className="text-green-700 mt-2">栽培記録アプリ</p>
+        <h1 className="text-4xl font-bold text-green-800 dark:text-green-300 mt-4">ベジログ</h1>
+        <p className="text-green-700 dark:text-green-400 mt-2">栽培記録アプリ</p>
       </div>
-      <div className="w-full max-w-sm bg-white p-8 rounded-2xl shadow-lg">
-        <h2 className="text-xl font-semibold text-center text-gray-700">ようこそ！</h2>
-        <p className="text-sm text-center text-gray-500 mt-2">あなたの栽培活動を記録しましょう。</p>
+      <div className="w-full max-w-sm bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg">
+        <h2 className="text-xl font-semibold text-center text-gray-700 dark:text-gray-200">ようこそ！</h2>
+        <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-2">あなたの栽培活動を記録しましょう。</p>
         <div className="mt-8">
           <button
             onClick={onLogin}
@@ -869,15 +870,15 @@ const Dashboard: React.FC<{
 
   return (
     <div className="p-4 md:p-6 space-y-6">
-      <div className="bg-white p-3 rounded-xl shadow-md border border-green-200">
-        <h3 className="font-semibold text-green-800 mb-2">今日の一言</h3>
-        <p className="text-gray-600 italic text-lg whitespace-nowrap overflow-hidden text-ellipsis">{tip}</p>
+      <div className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-md border border-green-200 dark:border-green-800">
+        <h3 className="font-semibold text-green-800 dark:text-green-300 mb-2">今日の一言</h3>
+        <p className="text-gray-600 dark:text-gray-400 italic text-lg whitespace-nowrap overflow-hidden text-ellipsis">{tip}</p>
       </div>
 
       <div>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-800">栽培レーンの状況</h2>
-          <span className="text-sm font-medium text-gray-500">{formattedDate}</span>
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">栽培レーンの状況</h2>
+          <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{formattedDate}</span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {CULTIVATION_LANES.map((lane, index) => {
@@ -903,7 +904,7 @@ const Dashboard: React.FC<{
                 </div>
                 
                 {/* Right Part: Photo */}
-                <div className="w-1/2 flex items-center justify-center bg-black/5 rounded-r-xl py-2 px-1">
+                <div className="w-1/2 flex items-center justify-center bg-black/5 dark:bg-black/20 rounded-r-xl py-2 px-1">
                   {current ? (
                       (current.photoBase64 || current.seedPackagePhotoFront) ? (
                           <img src={current.photoBase64 || current.seedPackagePhotoFront} alt={current.cropName} className="max-w-full max-h-full object-contain" />
@@ -914,7 +915,7 @@ const Dashboard: React.FC<{
                       )
                   ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                          <MoundIcon className="h-10 w-10 text-gray-400 opacity-60"/>
+                          <MoundIcon className="h-10 w-10 text-gray-400 dark:text-gray-500 opacity-60"/>
                       </div>
                   )}
                 </div>
@@ -936,16 +937,16 @@ const ImageSourceModal: React.FC<{
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xs" onClick={e => e.stopPropagation()}>
-        <h3 className="text-lg font-bold text-gray-900 text-center mb-4">画像を選択</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-xs" onClick={e => e.stopPropagation()}>
+        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 text-center mb-4">画像を選択</h3>
         <div className="flex justify-around gap-4">
-          <button onClick={() => onSelect('camera')} className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-100 transition-colors w-1/2">
-            <CameraIcon className="h-8 w-8 text-gray-700" />
-            <span className="font-semibold text-gray-700">カメラ</span>
+          <button onClick={() => onSelect('camera')} className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors w-1/2">
+            <CameraIcon className="h-8 w-8 text-gray-700 dark:text-gray-300" />
+            <span className="font-semibold text-gray-700 dark:text-gray-300">カメラ</span>
           </button>
-          <button onClick={() => onSelect('gallery')} className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-100 transition-colors w-1/2">
-            <ImageIcon className="h-8 w-8 text-gray-700" />
-            <span className="font-semibold text-gray-700">ギャラリー</span>
+          <button onClick={() => onSelect('gallery')} className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors w-1/2">
+            <ImageIcon className="h-8 w-8 text-gray-700 dark:text-gray-300" />
+            <span className="font-semibold text-gray-700 dark:text-gray-300">ギャラリー</span>
           </button>
         </div>
       </div>
@@ -1350,40 +1351,40 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
       startOfWeek={settings.startOfWeek}
     />
     <div className="p-4 space-y-6">
-      <div className="bg-yellow-50 p-6 rounded-xl shadow-md">
+      <div className="bg-yellow-50 dark:bg-gray-800/50 p-6 rounded-xl shadow-md">
         <div className="space-y-4">
           <div className="flex gap-4">
             <div className="w-2/3">
-              <label className="text-sm font-medium text-gray-700">作業日</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">作業日</label>
               <button 
                 onClick={() => setIsCalendarOpen(true)} 
-                className="mt-1 w-full p-3 border border-gray-300 rounded-lg bg-white text-left text-base"
+                className="mt-1 w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-left text-base"
               >
                 {recordDate} ({['日', '月', '火', '水', '木', '金', '土'][recordDateObj.getDay()]})
               </button>
             </div>
             <div className="w-1/3">
-              <label className="text-sm font-medium text-gray-700">栽培レーン</label>
-              <select value={cultivationLane} onChange={e => setCultivationLane(e.target.value)} className="mt-1 w-full p-3 border border-gray-300 rounded-lg bg-white">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">栽培レーン</label>
+              <select value={cultivationLane} onChange={e => setCultivationLane(e.target.value)} className="mt-1 w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
                 {CULTIVATION_LANES.map(lane => <option key={lane} value={lane}>{lane}</option>)}
               </select>
             </div>
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
               <span className="text-red-500 mr-1">*</span>作物の名前（例：ミニトマト）
             </label>
             <div className="flex items-center gap-2 mt-1">
                 <div className="relative flex-grow">
-                    <input type="text" value={cropName} onChange={e => setCropName(e.target.value)} placeholder="何を育てていますか？" className="w-full p-3 border border-gray-300 rounded-lg pr-12" />
+                    <input type="text" value={cropName} onChange={e => setCropName(e.target.value)} placeholder="何を育てていますか？" className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg pr-12 dark:bg-gray-700 dark:placeholder-gray-400" />
                     <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
-                        <button onClick={startListeningCropName} disabled={!settings.enableAiFeatures} className={`p-2 rounded-full ${isListeningCropName ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200'} disabled:opacity-50 disabled:cursor-not-allowed`}><MicrophoneIcon className="h-5 w-5" /></button>
+                        <button onClick={startListeningCropName} disabled={!settings.enableAiFeatures} className={`p-2 rounded-full ${isListeningCropName ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200 dark:hover:bg-gray-600'} disabled:opacity-50 disabled:cursor-not-allowed`}><MicrophoneIcon className="h-5 w-5" /></button>
                     </div>
                 </div>
                 <button 
                     onClick={handleClearClick}
-                    className="p-3 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors shrink-0"
+                    className="p-3 bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-800/50 transition-colors shrink-0"
                     title="このレーンと日付以降の記録をクリア"
                 >
                     <CloseIcon className="h-5 w-5" />
@@ -1394,13 +1395,13 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
           {settings.enableAiFeatures && (
           <div>
             <div className="flex justify-between items-center mb-1">
-                <label className="text-sm font-medium text-gray-700">種のパッケージ写真とAI解析（任意）</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">種のパッケージ写真とAI解析（任意）</label>
                  {(seedPackageFront || seedPackageBack) && (
                     <div className="flex items-center gap-2">
-                        <button onClick={handleUpdateAnalysis} disabled={!seedPackageBack} title="AI解析を再実行" className="p-1 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <button onClick={handleUpdateAnalysis} disabled={!seedPackageBack} title="AI解析を再実行" className="p-1 rounded-full text-gray-500 dark:text-gray-400 hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/50 dark:hover:text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed">
                             <RefreshIcon className="h-5 w-5" />
                         </button>
-                        <button onClick={handleDeletePackageData} title="データ削除" className="p-1 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-600">
+                        <button onClick={handleDeletePackageData} title="データ削除" className="p-1 rounded-full text-gray-500 dark:text-gray-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/50 dark:hover:text-red-400">
                             <TrashIcon className="h-5 w-5" />
                         </button>
                     </div>
@@ -1411,14 +1412,14 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
               <div className="w-1/5">
                 <input type="file" accept="image/*" capture="environment" onChange={(e) => handleSeedPhotoCapture(e, 'front')} className="hidden" id="seed-front-camera" />
                 <input type="file" accept="image/*" onChange={(e) => handleSeedPhotoCapture(e, 'front')} className="hidden" id="seed-front-gallery" />
-                <div className="w-full h-40 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center bg-white/50 hover:bg-gray-50 relative p-1 cursor-pointer" 
+                <div className="w-full h-40 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center bg-white/50 dark:bg-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-600 relative p-1 cursor-pointer" 
                   onClick={() => seedPackageFront ? setModalImage(seedPackageFront) : setImageSourceModal({ open: true, side: 'front' })}
                 >
                    <div className="absolute top-1 left-1 bg-black/40 text-white text-xs font-semibold px-2 py-0.5 rounded-full z-10">表</div>
                   {seedPackageFront ? (
                     <img src={seedPackageFront} alt="パッケージ表" className="h-full w-full object-contain rounded-md" />
                   ) : (
-                    <ImageIcon className="h-10 w-10 text-gray-400" />
+                    <ImageIcon className="h-10 w-10 text-gray-400 dark:text-gray-500" />
                   )}
                 </div>
               </div>
@@ -1427,24 +1428,24 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
               <div className="w-1/5">
                 <input type="file" accept="image/*" capture="environment" onChange={(e) => handleSeedPhotoCapture(e, 'back')} className="hidden" id="seed-back-camera" />
                 <input type="file" accept="image/*" onChange={(e) => handleSeedPhotoCapture(e, 'back')} className="hidden" id="seed-back-gallery" />
-                <div className="w-full h-40 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center bg-white/50 hover:bg-gray-50 relative p-1 cursor-pointer"
+                <div className="w-full h-40 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center bg-white/50 dark:bg-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-600 relative p-1 cursor-pointer"
                   onClick={() => seedPackageBack ? setModalImage(seedPackageBack) : setImageSourceModal({ open: true, side: 'back' })}
                 >
                   <div className="absolute top-1 left-1 bg-black/40 text-white text-xs font-semibold px-2 py-0.5 rounded-full z-10">裏</div>
                   {seedPackageBack ? (
                     <img src={seedPackageBack} alt="パッケージ裏" className="h-full w-full object-contain rounded-md" />
                   ) : (
-                    <ImageIcon className="h-10 w-10 text-gray-400" />
+                    <ImageIcon className="h-10 w-10 text-gray-400 dark:text-gray-500" />
                   )}
                 </div>
               </div>
 
               {/* AI Analysis Column */}
-              <div className="w-3/5 bg-lime-50 p-3 rounded-lg border border-gray-200 space-y-2 overflow-y-auto flex flex-col text-sm h-40">
+              <div className="w-3/5 bg-lime-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-200 dark:border-gray-600 space-y-2 overflow-y-auto flex flex-col text-sm h-40">
                 {(isAnalyzingPackage || packageInfo) ? (
                   <div className="space-y-2">
                      <div className="flex justify-between items-center">
-                        <h4 className="font-bold text-green-800">AIパッケージ解析結果</h4>
+                        <h4 className="font-bold text-green-800 dark:text-green-300">AIパッケージ解析結果</h4>
                         {isAnalyzingPackage && (
                             <button onClick={handleStopAnalysis} className="text-xs bg-red-100 text-red-700 font-semibold px-2 py-1 rounded-md hover:bg-red-200 transition-colors">
                               停止
@@ -1452,35 +1453,35 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
                         )}
                       </div>
                     {isAnalyzingPackage ? (
-                      <div className="flex items-center gap-2 text-gray-600">
+                      <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
                           <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-500"></div>
                           <span>解析中...</span>
                       </div>
                     ) : packageInfo ? (
-                      <div className="space-y-4 text-xs text-gray-700">
-                          {packageInfo.productName && <p><strong className="font-semibold text-gray-900">商品名:</strong> 【{packageInfo.productName}】</p>}
-                          {packageInfo.family && <p><strong className="font-semibold text-gray-900">科・属名:</strong> {packageInfo.family}</p>}
-                          {packageInfo.features && <p><strong className="font-semibold text-gray-900">特徴:</strong> {packageInfo.features}</p>}
+                      <div className="space-y-4 text-xs text-gray-700 dark:text-gray-300">
+                          {packageInfo.productName && <p><strong className="font-semibold text-gray-900 dark:text-gray-100">商品名:</strong> 【{packageInfo.productName}】</p>}
+                          {packageInfo.family && <p><strong className="font-semibold text-gray-900 dark:text-gray-100">科・属名:</strong> {packageInfo.family}</p>}
+                          {packageInfo.features && <p><strong className="font-semibold text-gray-900 dark:text-gray-100">特徴:</strong> {packageInfo.features}</p>}
                           
-                           <div className="space-y-2 pt-2 mt-2 border-t border-gray-200">
+                           <div className="space-y-2 pt-2 mt-2 border-t border-gray-200 dark:border-gray-600">
                                 <div className="grid grid-cols-1 gap-y-2">
                                   <div>
-                                    <h5 className="font-bold text-gray-800 text-xs mb-1">栽培時期</h5>
+                                    <h5 className="font-bold text-gray-800 dark:text-gray-200 text-xs mb-1">栽培時期</h5>
                                     <table className="w-full text-xs">
                                         <tbody>
-                                            {packageInfo.seedlingPeriod && <tr><td className="pr-2 font-medium text-gray-600">育苗</td><td className="text-gray-900 text-right">{packageInfo.seedlingPeriod}</td></tr>}
-                                            {packageInfo.plantingPeriod && <tr><td className="pr-2 font-medium text-gray-600">定植</td><td className="text-gray-900 text-right">{packageInfo.plantingPeriod}</td></tr>}
-                                            {packageInfo.harvestTime && <tr><td className="pr-2 font-medium text-gray-600">収穫</td><td className="text-gray-900 text-right">{packageInfo.harvestTime}</td></tr>}
+                                            {packageInfo.seedlingPeriod && <tr><td className="pr-2 font-medium text-gray-600 dark:text-gray-400">育苗</td><td className="text-gray-900 dark:text-gray-100 text-right">{packageInfo.seedlingPeriod}</td></tr>}
+                                            {packageInfo.plantingPeriod && <tr><td className="pr-2 font-medium text-gray-600 dark:text-gray-400">定植</td><td className="text-gray-900 dark:text-gray-100 text-right">{packageInfo.plantingPeriod}</td></tr>}
+                                            {packageInfo.harvestTime && <tr><td className="pr-2 font-medium text-gray-600 dark:text-gray-400">収穫</td><td className="text-gray-900 dark:text-gray-100 text-right">{packageInfo.harvestTime}</td></tr>}
                                         </tbody>
                                     </table>
                                   </div>
                                   <div>
-                                      <h5 className="font-bold text-gray-800 text-xs mb-1">栽培条件</h5>
+                                      <h5 className="font-bold text-gray-800 dark:text-gray-200 text-xs mb-1">栽培条件</h5>
                                       <table className="w-full text-xs">
                                           <tbody>
-                                              {packageInfo.daysToGermination && <tr><td className="pr-2 font-medium text-gray-600">発芽日数</td><td className="text-gray-900 text-right">{packageInfo.daysToGermination}</td></tr>}
-                                              {packageInfo.germinationTemp && <tr><td className="pr-2 font-medium text-gray-600">発芽適温</td><td className="text-gray-900 text-right">{packageInfo.germinationTemp}</td></tr>}
-                                              {packageInfo.growingTemp && <tr><td className="pr-2 font-medium text-gray-600">生育適温</td><td className="text-gray-900 text-right">{packageInfo.growingTemp}</td></tr>}
+                                              {packageInfo.daysToGermination && <tr><td className="pr-2 font-medium text-gray-600 dark:text-gray-400">発芽日数</td><td className="text-gray-900 dark:text-gray-100 text-right">{packageInfo.daysToGermination}</td></tr>}
+                                              {packageInfo.germinationTemp && <tr><td className="pr-2 font-medium text-gray-600 dark:text-gray-400">発芽適温</td><td className="text-gray-900 dark:text-gray-100 text-right">{packageInfo.germinationTemp}</td></tr>}
+                                              {packageInfo.growingTemp && <tr><td className="pr-2 font-medium text-gray-600 dark:text-gray-400">生育適温</td><td className="text-gray-900 dark:text-gray-100 text-right">{packageInfo.growingTemp}</td></tr>}
                                           </tbody>
                                       </table>
                                   </div>
@@ -1492,9 +1493,9 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
                 ) : null}
 
                 {(isSearchingPests || (pestInfo && pestInfo.length > 0)) ? (
-                  <div className="space-y-2 pt-2 mt-2 border-t border-gray-200">
+                  <div className="space-y-2 pt-2 mt-2 border-t border-gray-200 dark:border-gray-600">
                     <div className="flex justify-between items-center">
-                        <h4 className="font-bold text-red-800">注意すべき病害虫</h4>
+                        <h4 className="font-bold text-red-800 dark:text-red-300">注意すべき病害虫</h4>
                         {isSearchingPests && (
                             <button onClick={handleStopAnalysis} className="text-xs bg-red-100 text-red-700 font-semibold px-2 py-1 rounded-md hover:bg-red-200 transition-colors">
                               停止
@@ -1502,12 +1503,12 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
                         )}
                     </div>
                       {isSearchingPests ? (
-                          <div className="flex items-center gap-2 text-gray-600">
+                          <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
                               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-500"></div>
                               <span>検索中...</span>
                           </div>
                       ) : pestInfo ? (
-                          <ul className="list-disc list-inside text-xs text-gray-700 space-y-1">
+                          <ul className="list-disc list-inside text-xs text-gray-700 dark:text-gray-300 space-y-1">
                               {pestInfo.map((pest, index) => <li key={index}>{pest}</li>)}
                           </ul>
                       ) : null}
@@ -1515,7 +1516,7 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
                 ) : null}
 
                 {!isAnalyzingPackage && !packageInfo && !isSearchingPests && !pestInfo && (
-                    <div className="flex-grow flex flex-col items-center justify-center text-center text-gray-500 text-xs p-2">
+                    <div className="flex-grow flex flex-col items-center justify-center text-center text-gray-500 dark:text-gray-400 text-xs p-2">
                         {seedPackageBack ? (
                           <>
                             <p className="mb-3">準備ができました。</p>
@@ -1537,16 +1538,16 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
           )}
           
           <div>
-            <label className="text-sm font-medium text-gray-700">作業の種類（複数選択可）</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">作業の種類（複数選択可）</label>
             <div className="mt-2 grid grid-cols-3 sm:grid-cols-5 gap-2">
               {Object.entries(WORK_TYPE_DETAILS)
                 .filter(([type]) => settings.enablePumiceWash || type !== WorkType.PumiceWash)
                 .map(([type, { label, Icon }]) => {
                   const isSelected = workTypes.includes(type as WorkType);
                   return (
-                    <button key={type} onClick={() => handleWorkTypeToggle(type as WorkType)} className={`p-2 rounded-lg flex flex-col items-center justify-center text-xs transition-all h-20 ${isSelected ? 'ring-2 ring-offset-2 ring-blue-500 bg-blue-100' : 'bg-gray-100 hover:bg-gray-200'}`}>
-                      <Icon className={`h-7 w-7 mb-1 ${isSelected ? 'text-blue-600' : 'text-gray-600'}`} />
-                      {label}
+                    <button key={type} onClick={() => handleWorkTypeToggle(type as WorkType)} className={`p-2 rounded-lg flex flex-col items-center justify-center text-xs transition-all h-20 ${isSelected ? 'ring-2 ring-offset-2 ring-blue-500 bg-blue-100 dark:bg-blue-900/50' : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600'}`}>
+                      <Icon className={`h-7 w-7 mb-1 ${isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`} />
+                      <span className={`${isSelected ? 'text-blue-800 dark:text-blue-300' : ''}`}>{label}</span>
                     </button>
                   );
               })}
@@ -1554,18 +1555,18 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
           </div>
 
           {workTypes.includes(WorkType.Fertilizing) && (
-              <div className="bg-blue-50 p-4 rounded-lg space-y-4 fade-in border border-blue-200">
-                <label className="text-sm font-medium text-gray-700">液肥の詳細</label>
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg space-y-4 fade-in border border-blue-200 dark:border-blue-800">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">液肥の詳細</label>
                 {Object.entries(FERTILIZERS).map(([key, { name }]) => {
                   const type = key as 'M-Plus-1' | 'M-Plus-2';
                   const detail = fertilizingDetails.find(d => d.fertilizerType === type);
                   const isSelected = !!detail;
                   
                   return (
-                    <div key={type} className="bg-white p-3 rounded-lg border">
+                    <div key={type} className="bg-white dark:bg-gray-800 p-3 rounded-lg border dark:border-gray-700">
                       <button
                         onClick={() => handleFertilizerToggle(type)}
-                        className={`w-full flex justify-between items-center p-2 rounded-md text-sm font-semibold transition-colors ${isSelected ? 'bg-green-100 text-green-800' : 'bg-gray-100 hover:bg-gray-200'}`}
+                        className={`w-full flex justify-between items-center p-2 rounded-md text-sm font-semibold transition-colors ${isSelected ? 'bg-green-100 text-green-800 dark:bg-green-800/50 dark:text-green-300' : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600'}`}
                       >
                         <span>{name}</span>
                         <div className={`w-5 h-5 rounded-full border-2 ${isSelected ? 'bg-green-500 border-green-600' : 'border-gray-400'}`}></div>
@@ -1573,7 +1574,7 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
                       
                       {isSelected && detail && (
                         <div className="mt-3 space-y-2 fade-in">
-                          <label className="block text-xs font-medium text-gray-600">希釈倍率（倍）</label>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">希釈倍率（倍）</label>
                           <div className="grid grid-cols-3 gap-2">
                             {dilutionOptions.map(opt => (
                               <button
@@ -1582,14 +1583,14 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
                                   setDilutionButtons(b => ({ ...b, [type]: opt }));
                                   handleFertilizerDilutionChange(type, parseInt(opt, 10));
                                 }}
-                                className={`p-2 rounded-lg text-xs transition-colors ${dilutionButtons[type] === opt ? 'bg-green-600 text-white font-semibold' : 'bg-gray-100 hover:bg-gray-200'}`}
+                                className={`p-2 rounded-lg text-xs transition-colors ${dilutionButtons[type] === opt ? 'bg-green-600 text-white font-semibold' : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600'}`}
                               >
                                 {`${opt}倍`}
                               </button>
                             ))}
                             <button
                               onClick={() => setDilutionButtons(b => ({ ...b, [type]: 'custom' }))}
-                              className={`p-2 rounded-lg text-xs transition-colors ${dilutionButtons[type] === 'custom' ? 'bg-green-600 text-white font-semibold' : 'bg-gray-100 hover:bg-gray-200'}`}
+                              className={`p-2 rounded-lg text-xs transition-colors ${dilutionButtons[type] === 'custom' ? 'bg-green-600 text-white font-semibold' : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600'}`}
                             >
                               カスタム
                             </button>
@@ -1599,7 +1600,7 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
                               type="number"
                               value={detail.dilution}
                               onChange={e => handleFertilizerDilutionChange(type, parseInt(e.target.value, 10) || 0)}
-                              className="mt-2 w-full p-2 border border-gray-300 rounded-lg text-sm"
+                              className="mt-2 w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700"
                               placeholder="倍率を入力"
                             />
                           )}
@@ -1612,14 +1613,14 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
           )}
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">作物の状況（複数選択可）</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">作物の状況（複数選択可）</label>
             <div className="grid grid-cols-4 gap-2">
               {Object.entries(CROP_STAGE_DETAILS).map(([stage, { label, Icon }]) => {
                 const isSelected = cropStages.includes(stage as CropStage);
                 return (
-                  <button key={stage} onClick={() => handleCropStageToggle(stage as CropStage)} className={`p-2 rounded-lg flex flex-col items-center justify-center text-xs transition-all h-20 ${isSelected ? 'ring-2 ring-offset-2 ring-green-500 bg-green-100' : 'bg-gray-100 hover:bg-gray-200'}`}>
-                    <Icon className={`h-7 w-7 mb-1 ${isSelected ? 'text-green-600' : 'text-gray-600'}`} />
-                    {label}
+                  <button key={stage} onClick={() => handleCropStageToggle(stage as CropStage)} className={`p-2 rounded-lg flex flex-col items-center justify-center text-xs transition-all h-20 ${isSelected ? 'ring-2 ring-offset-2 ring-green-500 bg-green-100 dark:bg-green-900/50' : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600'}`}>
+                    <Icon className={`h-7 w-7 mb-1 ${isSelected ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-400'}`} />
+                    <span className={`${isSelected ? 'text-green-800 dark:text-green-300' : ''}`}>{label}</span>
                   </button>
                 );
               })}
@@ -1627,13 +1628,13 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
           </div>
           
           <div>
-            <label className="text-sm font-medium text-gray-700">観察記録（複数選択可）</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">観察記録（複数選択可）</label>
             <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
                {Object.entries(OBSERVATION_STATUS_DETAILS).map(([status, { label }]) => {
                 const isSelected = observationStatus.includes(status as ObservationStatus);
                 return (
-                  <button key={status} onClick={() => handleObservationStatusToggle(status as ObservationStatus)} className={`p-2 rounded-lg text-sm transition-all ${isSelected ? 'ring-2 ring-offset-1 ring-purple-500 bg-purple-100' : 'bg-gray-100 hover:bg-gray-200'}`}>
-                    {label}
+                  <button key={status} onClick={() => handleObservationStatusToggle(status as ObservationStatus)} className={`p-2 rounded-lg text-sm transition-all ${isSelected ? 'ring-2 ring-offset-1 ring-purple-500 bg-purple-100 dark:bg-purple-900/50' : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600'}`}>
+                    <span className={`${isSelected ? 'text-purple-800 dark:text-purple-300' : ''}`}>{label}</span>
                   </button>
                 );
               })}
@@ -1641,16 +1642,16 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
           </div>
           
           {showPestDetails && (
-            <div className="bg-purple-50 p-4 rounded-lg space-y-3 fade-in border border-purple-200">
-              <label className="text-sm font-medium text-gray-700">病害虫の詳細（複数選択可）</label>
+            <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg space-y-3 fade-in border border-purple-200 dark:border-purple-800">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">病害虫の詳細（複数選択可）</label>
               {pestInfo && pestInfo.length > 0 && (
                 <div>
-                  <p className="text-xs text-gray-600 mb-2">AIによる予測リスト：</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">AIによる予測リスト：</p>
                   <div className="flex flex-wrap gap-2">
                     {pestInfo.map(pest => {
                       const isSelected = pestDetails.includes(pest);
                       return (
-                        <button key={pest} onClick={() => handlePestDetailToggle(pest)} className={`px-3 py-1 text-sm rounded-full transition-colors ${isSelected ? 'bg-red-500 text-white shadow' : 'bg-white border hover:bg-red-50'}`}>
+                        <button key={pest} onClick={() => handlePestDetailToggle(pest)} className={`px-3 py-1 text-sm rounded-full transition-colors ${isSelected ? 'bg-red-500 text-white shadow' : 'bg-white border hover:bg-red-50 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-red-900/50'}`}>
                           {pest}
                         </button>
                       )
@@ -1659,7 +1660,7 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
                 </div>
               )}
               <div>
-                  <p className="text-xs text-gray-600 mb-2">カスタム入力：</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">カスタム入力：</p>
                   <div className="flex gap-2 items-center">
                     <div className="relative flex-grow">
                       <input 
@@ -1668,21 +1669,21 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
                           onChange={e => setCustomPest(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && handleAddCustomPest()}
                           placeholder="病害虫名を入力"
-                          className="w-full p-2 border border-gray-300 rounded-lg pr-10"
+                          className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg pr-10 dark:bg-gray-700"
                       />
-                      <button onClick={startListeningPest} disabled={!settings.enableAiFeatures} className={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full ${isListeningPest ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200'} disabled:opacity-50 disabled:cursor-not-allowed`}><MicrophoneIcon className="h-5 w-5" /></button>
+                      <button onClick={startListeningPest} disabled={!settings.enableAiFeatures} className={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full ${isListeningPest ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200 dark:hover:bg-gray-600'} disabled:opacity-50 disabled:cursor-not-allowed`}><MicrophoneIcon className="h-5 w-5" /></button>
                     </div>
                     <button onClick={handleAddCustomPest} className="bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors text-sm">追加</button>
                   </div>
               </div>
               {pestDetails.length > 0 && (
-                <div className="pt-3 border-t">
-                  <p className="text-xs text-gray-600 mb-2">選択中の病害虫：</p>
+                <div className="pt-3 border-t dark:border-gray-600">
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">選択中の病害虫：</p>
                   <div className="flex flex-wrap gap-2">
                     {pestDetails.map(pest => (
-                      <div key={pest} className="flex items-center gap-1.5 bg-purple-200 text-purple-800 text-sm pl-2.5 pr-1 py-0.5 rounded-full">
+                      <div key={pest} className="flex items-center gap-1.5 bg-purple-200 text-purple-800 dark:bg-purple-800/50 dark:text-purple-300 text-sm pl-2.5 pr-1 py-0.5 rounded-full">
                         <span>{pest}</span>
-                        <button onClick={() => handlePestDetailToggle(pest)} className="text-purple-600 hover:text-purple-900 rounded-full hover:bg-purple-300 p-0.5"><CloseIcon className="h-3 w-3" /></button>
+                        <button onClick={() => handlePestDetailToggle(pest)} className="text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-200 rounded-full hover:bg-purple-300 dark:hover:bg-purple-700 p-0.5"><CloseIcon className="h-3 w-3" /></button>
                       </div>
                     ))}
                   </div>
@@ -1692,23 +1693,23 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
           )}
 
           <div>
-            <label className="text-sm font-medium text-gray-700">成長記録の写真（任意）</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">成長記録の写真（任意）</label>
             <div className="mt-1">
               <input type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} className="hidden" id="photo-upload" />
-              <label htmlFor="photo-upload" className="w-full h-48 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50">
-                {photo ? <img src={photo} alt="プレビュー" className="h-full w-full object-cover rounded-lg" /> : (<><CameraIcon className="h-12 w-12 text-gray-400" /><span className="mt-2 text-sm text-gray-600">写真を撮る</span></>)}
+              <label htmlFor="photo-upload" className="w-full h-48 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                {photo ? <img src={photo} alt="プレビュー" className="h-full w-full object-cover rounded-lg" /> : (<><CameraIcon className="h-12 w-12 text-gray-400 dark:text-gray-500" /><span className="mt-2 text-sm text-gray-600 dark:text-gray-400">写真を撮る</span></>)}
               </label>
             </div>
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700">メモ（任意）</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">メモ（任意）</label>
              <div className="relative mt-1">
-              <textarea value={memo} onChange={e => setMemo(e.target.value)} rows={3} placeholder="何か覚えておくことはありますか？" className="w-full p-3 border border-gray-300 rounded-lg pr-32"></textarea>
+              <textarea value={memo} onChange={e => setMemo(e.target.value)} rows={3} placeholder="何か覚えておくことはありますか？" className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg pr-32 dark:bg-gray-700"></textarea>
               <div className="absolute right-2 top-2 flex items-center gap-1">
-                <button onClick={startListeningMemo} disabled={!settings.enableAiFeatures} className={`p-2 rounded-full ${isListeningMemo ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200'} disabled:opacity-50 disabled:cursor-not-allowed`}><MicrophoneIcon className="h-5 w-5" /></button>
-                <button onClick={() => memoOcrCameraRef.current?.click()} disabled={!settings.enableAiFeatures} className="p-2 rounded-full hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"><CameraIcon className="h-5 w-5" /></button>
-                <button onClick={() => memoOcrGalleryRef.current?.click()} disabled={!settings.enableAiFeatures} className="p-2 rounded-full hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"><ImageIcon className="h-5 w-5" /></button>
+                <button onClick={startListeningMemo} disabled={!settings.enableAiFeatures} className={`p-2 rounded-full ${isListeningMemo ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200 dark:hover:bg-gray-600'} disabled:opacity-50 disabled:cursor-not-allowed`}><MicrophoneIcon className="h-5 w-5" /></button>
+                <button onClick={() => memoOcrCameraRef.current?.click()} disabled={!settings.enableAiFeatures} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"><CameraIcon className="h-5 w-5" /></button>
+                <button onClick={() => memoOcrGalleryRef.current?.click()} disabled={!settings.enableAiFeatures} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"><ImageIcon className="h-5 w-5" /></button>
                 {isOcrLoading === 'memo' && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>}
                 <input type="file" accept="image/*" capture="environment" ref={memoOcrCameraRef} onChange={(e) => handleOcr(e.target.files?.[0] || null, setMemo, 'memo')} className="hidden" />
                 <input type="file" accept="image/*" ref={memoOcrGalleryRef} onChange={(e) => handleOcr(e.target.files?.[0] || null, setMemo, 'memo')} className="hidden" />
@@ -1731,16 +1732,16 @@ const RecordCard: React.FC<{ record: CultivationRecord; onClick: () => void }> =
   const formattedDate = `${dateObj.toLocaleDateString()} (${dayOfWeek})`;
 
   return (
-    <button onClick={onClick} className="w-full bg-yellow-50 rounded-xl shadow-md overflow-hidden fade-in flex text-left hover:shadow-lg transition-shadow">
+    <button onClick={onClick} className="w-full bg-yellow-50 dark:bg-gray-800 rounded-xl shadow-md overflow-hidden fade-in flex text-left hover:shadow-lg transition-shadow">
         <div className="w-2/3 p-4 flex flex-col justify-between">
           <div>
-            <h3 className="text-lg font-bold text-gray-800">{record.cultivationLane} 【{record.cropName}】</h3>
-            <p className="text-sm text-gray-500 mt-1">{formattedDate}</p>
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">{record.cultivationLane} 【{record.cropName}】</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{formattedDate}</p>
           
             <div className="space-y-2 mt-3 text-xs">
               {workTypesToDisplay.length > 0 && (
                   <div className="flex items-start gap-2">
-                    <span className="font-semibold text-gray-600 w-12 shrink-0">作業:</span>
+                    <span className="font-semibold text-gray-600 dark:text-gray-300 w-12 shrink-0">作業:</span>
                     <div className="flex flex-wrap gap-1">
                       {workTypesToDisplay.map(type => {
                         const details = WORK_TYPE_DETAILS[type as WorkType];
@@ -1758,28 +1759,28 @@ const RecordCard: React.FC<{ record: CultivationRecord; onClick: () => void }> =
                               label = `${label} (${detailsText})`;
                             }
                         }
-                        return <span key={type} className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">{label}</span>;
+                        return <span key={type} className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 px-2 py-0.5 rounded-full">{label}</span>;
                       })}
                     </div>
                   </div>
               )}
               {cropStagesToDisplay.length > 0 && (
                   <div className="flex items-start gap-2">
-                    <span className="font-semibold text-gray-600 w-12 shrink-0">状況:</span>
+                    <span className="font-semibold text-gray-600 dark:text-gray-300 w-12 shrink-0">状況:</span>
                     <div className="flex flex-wrap gap-1">
                       {cropStagesToDisplay.map(stage => {
                         const details = CROP_STAGE_DETAILS[stage as CropStage];
-                        return <span key={stage} className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full">{details?.label || stage}</span>;
+                        return <span key={stage} className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 px-2 py-0.5 rounded-full">{details?.label || stage}</span>;
                       })}
                     </div>
                   </div>
               )}
               {record.observationStatus && record.observationStatus.length > 0 && (
                   <div className="flex items-start gap-2">
-                     <span className="font-semibold text-gray-600 w-12 shrink-0">観察:</span>
+                     <span className="font-semibold text-gray-600 dark:text-gray-300 w-12 shrink-0">観察:</span>
                     <div className="flex flex-wrap gap-1">
                         {record.observationStatus.map(status => (
-                            <span key={status} className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">
+                            <span key={status} className="bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 px-2 py-0.5 rounded-full">
                                 {OBSERVATION_STATUS_DETAILS[status as ObservationStatus]?.label || status}
                             </span>
                         ))}
@@ -1788,10 +1789,10 @@ const RecordCard: React.FC<{ record: CultivationRecord; onClick: () => void }> =
               )}
               {record.pestDetails && record.pestDetails.length > 0 && (
                   <div className="flex items-start gap-2">
-                     <span className="font-semibold text-gray-600 w-12 shrink-0">病害虫:</span>
+                     <span className="font-semibold text-gray-600 dark:text-gray-300 w-12 shrink-0">病害虫:</span>
                     <div className="flex flex-wrap gap-1">
                         {record.pestDetails.map(pest => (
-                            <span key={pest} className="bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
+                            <span key={pest} className="bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300 px-2 py-0.5 rounded-full">
                                 {pest}
                             </span>
                         ))}
@@ -1801,14 +1802,14 @@ const RecordCard: React.FC<{ record: CultivationRecord; onClick: () => void }> =
             </div>
           </div>
           
-          {record.memo && <p className="mt-3 text-gray-700 text-xs bg-gray-50 p-2 rounded-md whitespace-pre-wrap break-words">{record.memo}</p>}
+          {record.memo && <p className="mt-3 text-gray-700 dark:text-gray-300 text-xs bg-gray-50 dark:bg-gray-700 p-2 rounded-md whitespace-pre-wrap break-words">{record.memo}</p>}
         </div>
-        <div className="w-1/3 bg-gray-200">
+        <div className="w-1/3 bg-gray-200 dark:bg-gray-700">
           {record.photoBase64 ? (
             <img src={record.photoBase64} alt={record.cropName} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <LeafIcon className="h-12 w-12 text-gray-400" />
+              <LeafIcon className="h-12 w-12 text-gray-400 dark:text-gray-500" />
             </div>
           )}
         </div>
@@ -1887,7 +1888,7 @@ const CalendarHistoryPage: React.FC<{
 
   const daysInGrid = [];
   for (let i = 0; i < firstDayOfMonth; i++) {
-    daysInGrid.push(<div key={`blank-${i}`} className="border-r border-b h-12"></div>);
+    daysInGrid.push(<div key={`blank-${i}`} className="border-r border-b dark:border-gray-700 h-12"></div>);
   }
 
   const recordsForCalendar = useMemo(() => {
@@ -1916,11 +1917,11 @@ const CalendarHistoryPage: React.FC<{
     else if (isSaturday) dayColor = 'text-blue-500';
 
     daysInGrid.push(
-      <div key={day} className="border-r border-b h-12">
+      <div key={day} className="border-r border-b dark:border-gray-700 h-12">
         <button
           onClick={() => setSelectedDate(date)}
           className={`w-full h-full relative rounded-md text-sm transition-colors ${
-            isSelected ? 'bg-green-600 text-white font-bold' : isToday ? 'ring-2 ring-green-500' : 'hover:bg-green-100'
+            isSelected ? 'bg-green-600 text-white font-bold' : isToday ? 'ring-2 ring-green-500' : 'hover:bg-green-100 dark:hover:bg-green-800/50'
           }`}
         >
           <span className={`absolute top-1 left-1 ${isSelected ? 'text-white' : dayColor}`}>{day}</span>
@@ -1932,13 +1933,13 @@ const CalendarHistoryPage: React.FC<{
 
   return (
     <div className="p-4 space-y-4">
-      <div className="bg-white p-4 rounded-xl shadow-md">
-        <label htmlFor="crop-filter" className="block text-sm font-medium text-gray-700">作物で絞り込み</label>
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
+        <label htmlFor="crop-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300">作物で絞り込み</label>
         <select
           id="crop-filter"
           value={filterCrop}
           onChange={e => { setFilterCrop(e.target.value); setSelectedDate(null); }}
-          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm rounded-md"
+          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:bg-gray-700 dark:border-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm rounded-md"
         >
           <option value="">すべての作物</option>
           {uniqueCrops.map(crop => <option key={crop} value={crop}>{crop}</option>)}
@@ -1947,26 +1948,26 @@ const CalendarHistoryPage: React.FC<{
       
       {filterCrop ? (
         <div className="space-y-4">
-            <h3 className="font-bold text-lg text-gray-800 text-center">「{filterCrop}」の記録 (過去3ヶ月)</h3>
+            <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200 text-center">「{filterCrop}」の記録 (過去3ヶ月)</h3>
             {filteredRecordsList.length > 0 ? (
                 filteredRecordsList.map(record => <RecordCard key={record.id} record={record} onClick={() => onRecordClick(record)} />)
             ) : (
-                <div className="text-center py-6 bg-white rounded-xl shadow-md">
-                    <p className="text-gray-500">この期間の記録はありません。</p>
+                <div className="text-center py-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
+                    <p className="text-gray-500 dark:text-gray-400">この期間の記録はありません。</p>
                 </div>
             )}
         </div>
       ) : (
       <>
-        <div className="bg-white p-4 rounded-xl shadow-md">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
           <div className="flex items-center justify-between mb-4">
-            <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-100"><ChevronLeftIcon className="h-6 w-6" /></button>
-            <h2 className="text-lg font-bold text-gray-800">{currentDate.getFullYear()}年 {currentDate.getMonth() + 1}月</h2>
-            <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-100"><ChevronRightIcon className="h-6 w-6" /></button>
+            <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><ChevronLeftIcon className="h-6 w-6" /></button>
+            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">{currentDate.getFullYear()}年 {currentDate.getMonth() + 1}月</h2>
+            <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><ChevronRightIcon className="h-6 w-6" /></button>
           </div>
-          <div className="grid grid-cols-7 border-t border-l">
+          <div className="grid grid-cols-7 border-t border-l dark:border-gray-700">
             {weekHeaderLabels.map((day, index) => (
-              <div key={day} className={`text-center font-semibold text-sm py-2 border-r border-b ${weekHeaderColors[index]}`}>
+              <div key={day} className={`text-center font-semibold text-sm py-2 border-r border-b dark:border-gray-700 ${weekHeaderColors[index]}`}>
                 {day}
               </div>
             ))}
@@ -1976,12 +1977,12 @@ const CalendarHistoryPage: React.FC<{
 
         {selectedDate && (
           <div className="space-y-4">
-            <h3 className="font-bold text-lg text-gray-800 text-center">{selectedDate.toLocaleDateString()}の記録</h3>
+            <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200 text-center">{selectedDate.toLocaleDateString()}の記録</h3>
             {selectedRecords.length > 0 ? (
               selectedRecords.map(record => <RecordCard key={record.id} record={record} onClick={() => onRecordClick(record)} />)
             ) : (
-              <div className="text-center py-6 bg-white rounded-xl shadow-md">
-                <p className="text-gray-500">この日の記録はありません。</p>
+              <div className="text-center py-6 bg-white dark:bg-gray-800 rounded-xl shadow-md">
+                <p className="text-gray-500 dark:text-gray-400">この日の記録はありません。</p>
               </div>
             )}
           </div>
@@ -2011,10 +2012,10 @@ const ToolsPage: React.FC<{ setPage: (page: string) => void }> = ({ setPage }) =
           <button
             key={tool.page}
             onClick={() => setPage(tool.page)}
-            className="bg-white p-4 rounded-xl shadow-md hover:shadow-lg transition-shadow flex flex-col items-center justify-center h-32"
+            className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md hover:shadow-lg transition-shadow flex flex-col items-center justify-center h-32"
           >
-            <tool.icon className="h-10 w-10 text-green-600 mb-2" />
-            <span className="font-semibold text-gray-700 text-center text-sm">{tool.name}</span>
+            <tool.icon className="h-10 w-10 text-green-600 dark:text-green-400 mb-2" />
+            <span className="font-semibold text-gray-700 dark:text-gray-300 text-center text-sm">{tool.name}</span>
           </button>
         ))}
       </div>
@@ -2053,37 +2054,37 @@ const CalculatorPage: React.FC<PageProps> = ({ setPage, records }) => {
   
   return (
     <div className="p-4 space-y-4">
-      <div className="bg-white p-4 rounded-xl shadow-md space-y-4">
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">液肥の種類</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">液肥の種類</label>
           <div className="grid grid-cols-2 gap-2">
             {Object.entries(FERTILIZERS).map(([key, { name }]) => (
               <button
                 key={key}
                 onClick={() => setFertilizer(key as 'M-Plus-1' | 'M-Plus-2')}
-                className={`p-2 rounded-lg text-sm transition-colors ${fertilizer === key ? 'bg-green-600 text-white font-semibold' : 'bg-gray-100 hover:bg-gray-200'}`}
+                className={`p-2 rounded-lg text-sm transition-colors ${fertilizer === key ? 'bg-green-600 text-white font-semibold' : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600'}`}
               >
                 {name}
               </button>
             ))}
           </div>
-          <div className="text-xs text-gray-600 mt-2 bg-gray-50 p-2 rounded-md">
+          <div className="text-xs text-gray-600 dark:text-gray-300 mt-2 bg-gray-50 dark:bg-gray-700 p-2 rounded-md">
             <p><strong>使用目的:</strong> {FERTILIZERS[fertilizer].usage}</p>
             <p className="mt-1"><strong>主な成分:</strong> {FERTILIZERS[fertilizer].component}</p>
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">水の量（リットル）</label>
-          <input type="number" value={waterAmount} onChange={e => setWaterAmount(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" placeholder="例: 8" />
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">水の量（リットル）</label>
+          <input type="number" value={waterAmount} onChange={e => setWaterAmount(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg" placeholder="例: 8" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">希釈倍率（倍）</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">希釈倍率（倍）</label>
           <div className="grid grid-cols-3 gap-2">
             {dilutionOptions.map(opt => (
               <button
                 key={opt}
                 onClick={() => handleDilutionSelect(opt)}
-                className={`p-2 rounded-lg text-sm transition-colors ${selectedDilution === opt ? 'bg-green-600 text-white font-semibold' : 'bg-gray-100 hover:bg-gray-200'}`}
+                className={`p-2 rounded-lg text-sm transition-colors ${selectedDilution === opt ? 'bg-green-600 text-white font-semibold' : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600'}`}
               >
                 {opt === 'custom' ? 'カスタム' : `${opt}倍`}
               </button>
@@ -2094,17 +2095,17 @@ const CalculatorPage: React.FC<PageProps> = ({ setPage, records }) => {
               type="number"
               value={dilution}
               onChange={e => setDilution(e.target.value)}
-              className="mt-2 w-full p-2 border border-gray-300 rounded-lg"
+              className="mt-2 w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg"
               placeholder="倍率を入力"
             />
           )}
         </div>
       </div>
-      <div className="bg-green-100 p-4 rounded-xl shadow-md text-center">
-        <p className="text-sm font-medium text-green-800">必要な液肥の量</p>
-        <p className="text-4xl font-bold text-green-700 my-2">{result.toFixed(2)}<span className="text-lg ml-1">ml</span></p>
-        <p className="text-green-600">ペットボトルのキャップ 約 <span className="font-bold">{capsNeeded}</span> 杯分</p>
-        <p className="text-xs text-green-700 mt-1">（スクリュー線の上ラインで約5ml）</p>
+      <div className="bg-green-100 dark:bg-green-800/50 p-4 rounded-xl shadow-md text-center">
+        <p className="text-sm font-medium text-green-800 dark:text-green-300">必要な液肥の量</p>
+        <p className="text-4xl font-bold text-green-700 dark:text-green-400 my-2">{result.toFixed(2)}<span className="text-lg ml-1">ml</span></p>
+        <p className="text-green-600 dark:text-green-300">ペットボトルのキャップ 約 <span className="font-bold">{capsNeeded}</span> 杯分</p>
+        <p className="text-xs text-green-700 dark:text-green-400 mt-1">（スクリュー線の上ラインで約5ml）</p>
       </div>
     </div>
   );
@@ -2168,8 +2169,8 @@ const RecipeSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, han
 
   return (
     <div className="p-4 space-y-4">
-      <div className="bg-white p-4 rounded-xl shadow-md">
-        <h3 className="font-semibold text-gray-800 mb-2">レシピ検索</h3>
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
+        <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">レシピ検索</h3>
         <div className="flex gap-2">
           <div className="relative flex-grow">
             <input 
@@ -2178,10 +2179,10 @@ const RecipeSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, han
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSearch(query)}
               placeholder="野菜名を入力 (例: トマト)"
-              className="w-full p-2 border border-gray-300 rounded-lg pr-10"
+              className="w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg pr-10"
               disabled={isLoading}
             />
-            <button onClick={startListening} disabled={isLoading} className={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full ${isListening ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200'}`}><MicrophoneIcon className="h-5 w-5" /></button>
+            <button onClick={startListening} disabled={isLoading} className={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full ${isListening ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200 dark:hover:bg-gray-600'}`}><MicrophoneIcon className="h-5 w-5" /></button>
           </div>
           <button onClick={() => handleSearch(query)} disabled={isLoading || !query.trim()} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400">
             検索
@@ -2189,14 +2190,14 @@ const RecipeSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, han
         </div>
         {cultivatedCrops.length > 0 && (
           <div className="mt-3">
-            <p className="text-xs text-gray-500 mb-1">現在栽培中の作物:</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">現在栽培中の作物:</p>
             <div className="flex flex-wrap gap-2">
               {cultivatedCrops.map(crop => (
                 <button
                   key={crop}
                   onClick={() => handleCropButtonClick(crop)}
                   disabled={isLoading}
-                  className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-full hover:bg-green-200 transition-colors disabled:opacity-50"
+                  className="px-3 py-1 text-sm bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 rounded-full hover:bg-green-200 dark:hover:bg-green-800/50 transition-colors disabled:opacity-50"
                 >
                   {crop}
                 </button>
@@ -2210,28 +2211,28 @@ const RecipeSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, han
 
       <div className="space-y-4">
         {recipes.map((recipe, index) => (
-          <div key={index} className="bg-white rounded-xl shadow-md overflow-hidden">
-            <div className="h-40 bg-gray-200 flex items-center justify-center">
+          <div key={index} className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden">
+            <div className="h-40 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
               {imageUrls[index] ? (
                 <img src={imageUrls[index]} alt={recipe.recipeName} className="w-full h-full object-cover" />
               ) : (
-                <div className="animate-pulse w-full h-full bg-gray-300"></div>
+                <div className="animate-pulse w-full h-full bg-gray-300 dark:bg-gray-600"></div>
               )}
             </div>
             <div className="p-4">
-                <h4 className="font-bold text-lg text-gray-800">{recipe.recipeName}</h4>
-                <p className="text-sm text-gray-600 mt-1">{recipe.description}</p>
+                <h4 className="font-bold text-lg text-gray-800 dark:text-gray-200">{recipe.recipeName}</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{recipe.description}</p>
                 
                 <div className="flex mt-3">
                     <div className="w-2/5 pr-2">
-                        <h5 className="font-semibold text-sm text-gray-700">主な材料</h5>
-                        <ul className="list-disc list-outside pl-4 text-sm text-gray-600 mt-1 space-y-0.5">
+                        <h5 className="font-semibold text-sm text-gray-700 dark:text-gray-300">主な材料</h5>
+                        <ul className="list-disc list-outside pl-4 text-sm text-gray-600 dark:text-gray-300 mt-1 space-y-0.5">
                             {recipe.ingredients.map((ing: string, i: number) => <li key={i}>{ing}</li>)}
                         </ul>
                     </div>
-                    <div className="w-3/5 pl-2 border-l border-gray-200">
-                         <h5 className="font-semibold text-sm text-gray-700">作り方の要約</h5>
-                        <div className="text-sm text-gray-600 mt-1">
+                    <div className="w-3/5 pl-2 border-l border-gray-200 dark:border-gray-600">
+                         <h5 className="font-semibold text-sm text-gray-700 dark:text-gray-300">作り方の要約</h5>
+                        <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                            <FormattedContent content={recipe.instructionsSummary || ''} />
                         </div>
                     </div>
@@ -2290,33 +2291,33 @@ const VegetableSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, 
   };
   
   const InfoSection: React.FC<{title: string; children: React.ReactNode;}> = ({title, children}) => (
-    <div className="bg-white p-4 rounded-xl shadow-md">
-      <h3 className="text-lg font-bold text-green-800 mb-2">{title}</h3>
-      <div className="space-y-2 text-sm text-gray-700">{children}</div>
+    <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
+      <h3 className="text-lg font-bold text-green-800 dark:text-green-300 mb-2">{title}</h3>
+      <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">{children}</div>
     </div>
   );
 
   return (
     <div className="p-4 space-y-4">
-      <div className="bg-white p-4 rounded-xl shadow-md">
-         <h3 className="font-semibold text-gray-800 mb-2">野菜の育て方検索</h3>
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
+         <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">野菜の育て方検索</h3>
         <div className="flex gap-2">
            <div className="relative flex-grow">
-            <input type="text" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch(query)} placeholder="野菜名を入力" className="w-full p-2 border border-gray-300 rounded-lg pr-10" disabled={isLoading} />
-            <button onClick={startListening} disabled={isLoading} className={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full ${isListening ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200'}`}><MicrophoneIcon className="h-5 w-5" /></button>
+            <input type="text" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch(query)} placeholder="野菜名を入力" className="w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg pr-10" disabled={isLoading} />
+            <button onClick={startListening} disabled={isLoading} className={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full ${isListening ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200 dark:hover:bg-gray-600'}`}><MicrophoneIcon className="h-5 w-5" /></button>
           </div>
           <button onClick={() => handleSearch(query)} disabled={isLoading || !query.trim()} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400">検索</button>
         </div>
         {cultivatedCrops.length > 0 && (
           <div className="mt-3">
-            <p className="text-xs text-gray-500 mb-1">現在栽培中の作物:</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">現在栽培中の作物:</p>
             <div className="flex flex-wrap gap-2">
               {cultivatedCrops.map(crop => (
                 <button
                   key={crop}
                   onClick={() => handleCropButtonClick(crop)}
                   disabled={isLoading}
-                  className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-full hover:bg-green-200 transition-colors disabled:opacity-50"
+                  className="px-3 py-1 text-sm bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 rounded-full hover:bg-green-200 dark:hover:bg-green-800/50 transition-colors disabled:opacity-50"
                 >
                   {crop}
                 </button>
@@ -2330,7 +2331,7 @@ const VegetableSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, 
       
       {result && (
         <div className="space-y-4 fade-in">
-          <h2 className="text-2xl font-bold text-center text-gray-800">{result.vegetableName} の育て方</h2>
+          <h2 className="text-2xl font-bold text-center text-gray-800 dark:text-gray-200">{result.vegetableName} の育て方</h2>
           <InfoSection title="栽培ごよみ">
             <p><strong>種まき:</strong> {result.cultivationCalendar.seeding}</p>
             <p><strong>植え付け:</strong> {result.cultivationCalendar.planting}</p>
@@ -2398,9 +2399,9 @@ const PestSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handl
   }, [query, image, handleApiCall]);
 
   const SummaryCard: React.FC<{title: string; content: string}> = ({title, content}) => (
-    <div className="bg-lime-50 p-3 rounded-lg">
-      <h4 className="font-bold text-lime-800 text-sm">{title}</h4>
-      <p className="text-lime-900 text-sm mt-1">{content}</p>
+    <div className="bg-lime-50 dark:bg-lime-900/30 p-3 rounded-lg">
+      <h4 className="font-bold text-lime-800 dark:text-lime-300 text-sm">{title}</h4>
+      <p className="text-lime-900 dark:text-lime-200 text-sm mt-1">{content}</p>
     </div>
   );
   
@@ -2415,13 +2416,13 @@ const PestSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handl
       <input type="file" accept="image/*" ref={galleryInputRef} onChange={handleImageChange} className="hidden" />
 
       <div className="p-4 space-y-4">
-        <div className="bg-white p-4 rounded-xl shadow-md space-y-3">
-          <h3 className="font-semibold text-gray-800">病害虫・症状検索</h3>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md space-y-3">
+          <h3 className="font-semibold text-gray-800 dark:text-gray-200">病害虫・症状検索</h3>
           <div className="relative">
-            <textarea value={query} onChange={e => setQuery(e.target.value)} rows={2} placeholder="症状を入力 (例: 葉に白い斑点がある)" className="w-full p-2 border border-gray-300 rounded-lg pr-24" disabled={isLoading}></textarea>
+            <textarea value={query} onChange={e => setQuery(e.target.value)} rows={2} placeholder="症状を入力 (例: 葉に白い斑点がある)" className="w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg pr-24" disabled={isLoading}></textarea>
              <div className="absolute right-2 top-2 flex items-center gap-1">
-                <button onClick={() => setIsSourceModalOpen(true)} disabled={isLoading} className="p-2 rounded-full hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"><CameraIcon className="h-5 w-5" /></button>
-                <button onClick={startListening} disabled={isLoading} className={`p-2 rounded-full ${isListening ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200'} disabled:opacity-50 disabled:cursor-not-allowed`}><MicrophoneIcon className="h-5 w-5" /></button>
+                <button onClick={() => setIsSourceModalOpen(true)} disabled={isLoading} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"><CameraIcon className="h-5 w-5" /></button>
+                <button onClick={startListening} disabled={isLoading} className={`p-2 rounded-full ${isListening ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200 dark:hover:bg-gray-600'} disabled:opacity-50 disabled:cursor-not-allowed`}><MicrophoneIcon className="h-5 w-5" /></button>
             </div>
           </div>
           <button onClick={handleSearch} disabled={isLoading || (!query.trim() && !image)} className="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 disabled:bg-gray-400">検索</button>
@@ -2438,15 +2439,15 @@ const PestSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handl
 
         {result && (
           <div className="space-y-4 fade-in">
-            <h2 className="text-2xl font-bold text-center text-red-800">{result.pestName}</h2>
-            <div className="bg-white p-4 rounded-xl shadow-md space-y-2">
-              <h3 className="text-lg font-bold text-gray-800 mb-2">概要</h3>
+            <h2 className="text-2xl font-bold text-center text-red-800 dark:text-red-300">{result.pestName}</h2>
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md space-y-2">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-2">概要</h3>
               <SummaryCard title="特徴" content={result.summary.characteristics} />
               <SummaryCard title="原因" content={result.summary.causes} />
               <SummaryCard title="対策" content={result.summary.countermeasures} />
             </div>
-            <div className="bg-white p-4 rounded-xl shadow-md space-y-2">
-              <h3 className="text-lg font-bold text-gray-800 mb-2">詳細情報</h3>
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md space-y-2">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-2">詳細情報</h3>
               <p><strong className="font-semibold">特徴:</strong> <FormattedContent content={result.details.characteristics} /></p>
               <p><strong className="font-semibold">原因:</strong> <FormattedContent content={result.details.causes} /></p>
               <p><strong className="font-semibold">対策:</strong> <FormattedContent content={result.details.countermeasures} /></p>
@@ -2482,12 +2483,12 @@ const TermSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handl
   
   return (
     <div className="p-4 space-y-4">
-      <div className="bg-white p-4 rounded-xl shadow-md">
-        <h3 className="font-semibold text-gray-800 mb-2">園芸用語辞典</h3>
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
+        <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">園芸用語辞典</h3>
         <div className="flex gap-2">
           <div className="relative flex-grow">
-            <input type="text" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()} placeholder="例: 摘心" className="w-full p-2 border border-gray-300 rounded-lg pr-10" disabled={isLoading} />
-            <button onClick={startListening} disabled={isLoading} className={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full ${isListening ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200'}`}><MicrophoneIcon className="h-5 w-5" /></button>
+            <input type="text" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()} placeholder="例: 摘心" className="w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg pr-10" disabled={isLoading} />
+            <button onClick={startListening} disabled={isLoading} className={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full ${isListening ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200 dark:hover:bg-gray-600'}`}><MicrophoneIcon className="h-5 w-5" /></button>
           </div>
           <button onClick={handleSearch} disabled={isLoading || !query.trim()} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400">検索</button>
         </div>
@@ -2496,8 +2497,8 @@ const TermSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handl
       {isLoading && <div className="text-center p-4">AIが解説を生成しています...</div>}
       
       {result && (
-        <div className="bg-white p-4 rounded-xl shadow-md fade-in">
-          <h2 className="text-xl font-bold text-gray-800 mb-2">「{query}」の解説</h2>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md fade-in">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">「{query}」の解説</h2>
           <FormattedContent content={result.text} />
         </div>
       )}
@@ -2555,7 +2556,7 @@ const WeatherChart: React.FC<{ hourlyData: WeatherInfo['hourly']; startDate: str
     const PRECIP_Y_BASE = PADDING_TOP + TEMP_AREA_HEIGHT + ICON_AREA_HEIGHT + PRECIP_AREA_HEIGHT;
 
     return (
-        <div className="overflow-x-auto bg-gray-50 p-2 rounded-lg -mx-2">
+        <div className="overflow-x-auto bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg -mx-2">
             <svg width={svgWidth} height={CHART_HEIGHT} className="select-none">
                 {/* Precipitation Bars and Labels */}
                 {hourlyData.map((h, i) => {
@@ -2566,7 +2567,7 @@ const WeatherChart: React.FC<{ hourlyData: WeatherInfo['hourly']; startDate: str
                         <g key={`precip-${i}`}>
                             <rect x={x} y={y} width={20} height={barHeight} fill="#60a5fa" rx="4" ry="4"/>
                             {h.precipitation > 0.1 && (
-                                <text x={x + 10} y={y - 4} textAnchor="middle" fontSize="10" fill="#4b5563">
+                                <text x={x + 10} y={y - 4} textAnchor="middle" fontSize="10" className="fill-gray-600 dark:fill-gray-300">
                                     {h.precipitation}mm
                                 </text>
                             )}
@@ -2595,7 +2596,7 @@ const WeatherChart: React.FC<{ hourlyData: WeatherInfo['hourly']; startDate: str
                     return (
                         <g key={`point-${i}`}>
                             <circle cx={x} cy={y} r="4" fill="#f97316" stroke="white" strokeWidth="2"/>
-                            <text x={x} y={y - 10} textAnchor="middle" fontWeight="bold" fontSize="14" fill="#4b5563">
+                            <text x={x} y={y - 10} textAnchor="middle" fontWeight="bold" fontSize="14" className="fill-gray-700 dark:fill-gray-300">
                                 {Math.round(h.temperature)}°
                             </text>
                         </g>
@@ -2607,10 +2608,10 @@ const WeatherChart: React.FC<{ hourlyData: WeatherInfo['hourly']; startDate: str
                     const x = i * ITEM_WIDTH + ITEM_WIDTH / 2;
                     return (
                         <g key={`time-${i}`}>
-                             <text x={x} y={CHART_HEIGHT - 25} textAnchor="middle" fontSize="12" fill="#4b5563">
+                             <text x={x} y={CHART_HEIGHT - 25} textAnchor="middle" fontSize="12" className="fill-gray-600 dark:fill-gray-400">
                                 {dates[i]}
                             </text>
-                            <text x={x} y={CHART_HEIGHT - 8} textAnchor="middle" fontWeight="bold" fontSize="14" fill="#1f2937">
+                            <text x={x} y={CHART_HEIGHT - 8} textAnchor="middle" fontWeight="bold" fontSize="14" className="fill-gray-800 dark:fill-gray-200">
                                 {h.time}
                             </text>
                         </g>
@@ -2667,20 +2668,20 @@ const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleAp
     return (
         <div className="p-4 space-y-4">
             {isLoading && <div className="text-center p-8">{loadingMessage}</div>}
-            {error && <div className="text-center p-8 text-red-600">{error}</div>}
+            {error && <div className="text-center p-8 text-red-600 dark:text-red-400">{error}</div>}
 
             {weather && (
               <div className="space-y-4 fade-in">
-                <div className="bg-white p-4 rounded-xl shadow-md">
-                    <p className="text-lg font-bold text-gray-800">{weather.location}</p>
-                    <p className="text-gray-600">{weather.current.weather}</p>
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
+                    <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{weather.location}</p>
+                    <p className="text-gray-600 dark:text-gray-300">{weather.current.weather}</p>
                     <div className="flex items-center justify-center gap-4 my-4">
                         <div className="w-20 h-20">
                            {getWeatherIllustration(weather.current.weather, "w-full h-full")}
                         </div>
                         <div className="text-center">
-                            <p className="text-6xl font-bold text-gray-800">{Math.round(weather.current.temperature)}°C</p>
-                            <p className="text-gray-600">湿度: {weather.current.humidity}%</p>
+                            <p className="text-6xl font-bold text-gray-800 dark:text-gray-200">{Math.round(weather.current.temperature)}°C</p>
+                            <p className="text-gray-600 dark:text-gray-300">湿度: {weather.current.humidity}%</p>
                         </div>
                     </div>
                     
@@ -2695,21 +2696,21 @@ const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleAp
                     })()}
                 </div>
 
-                <div className="bg-white p-4 rounded-xl shadow-md">
-                    <h3 className="font-bold text-gray-800 mb-2">3時間ごとの予報</h3>
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
+                    <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-2">3時間ごとの予報</h3>
                     <WeatherChart hourlyData={weather.hourly} startDate={weather.weekly[0].date} />
                 </div>
 
-                <div className="bg-white p-4 rounded-xl shadow-md">
-                    <h3 className="font-bold text-gray-800 mb-2">週間予報</h3>
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
+                    <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-2">週間予報</h3>
                     <div className="space-y-1">
                         {weather.weekly.map((day, index) => (
-                            <div key={index} className="grid grid-cols-4 items-center text-sm p-1 rounded-md hover:bg-gray-50 gap-2">
+                            <div key={index} className="grid grid-cols-4 items-center text-sm p-1 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 gap-2">
                                 <p className="font-semibold">{`${day.date.substring(5).replace('-', '/')}(${day.day.charAt(0)})`}</p>
                                 <div className="flex items-center gap-2">
                                   <div className="w-7 h-7">{getWeatherIllustration(day.weather, "w-full h-full")}</div>
                                 </div>
-                                <p className="text-center text-gray-600">{day.weather}</p>
+                                <p className="text-center text-gray-600 dark:text-gray-300">{day.weather}</p>
                                 <p className="text-right">
                                     <span className="font-bold text-red-500">{Math.round(day.temp_max)}°</span> / <span className="text-blue-500">{Math.round(day.temp_min)}°</span>
                                 </p>
@@ -2759,12 +2760,12 @@ const PlantDiagnosisPage: React.FC<PageProps> = ({ settings, onSettingsChange, h
   }, [image, handleApiCall]);
   
   const DiagnosisCard: React.FC<{ title: string; children: React.ReactNode; icon: React.FC<{className?: string}> }> = ({ title, children, icon: Icon }) => (
-      <div className="bg-white p-4 rounded-xl shadow-md">
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
         <div className="flex items-center gap-3 mb-2">
-          <Icon className="h-6 w-6 text-green-600" />
-          <h3 className="text-lg font-bold text-green-800">{title}</h3>
+          <Icon className="h-6 w-6 text-green-600 dark:text-green-400" />
+          <h3 className="text-lg font-bold text-green-800 dark:text-green-300">{title}</h3>
         </div>
-        <div className="space-y-2 text-sm text-gray-700 pl-9">{children}</div>
+        <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300 pl-9">{children}</div>
       </div>
   );
 
@@ -2774,22 +2775,22 @@ const PlantDiagnosisPage: React.FC<PageProps> = ({ settings, onSettingsChange, h
       <input type="file" accept="image/*" ref={galleryInputRef} onChange={handleImageChange} className="hidden" />
       
       <div className="p-4 space-y-4">
-        <div className="bg-white p-4 rounded-xl shadow-md space-y-3">
-            <h3 className="font-semibold text-gray-800">AI作物診断</h3>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md space-y-3">
+            <h3 className="font-semibold text-gray-800 dark:text-gray-200">AI作物診断</h3>
           
-          <div className="w-full h-48 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center p-2">
+          <div className="w-full h-48 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center p-2">
             {image ? (
               <img src={image.preview} alt="診断対象" className="h-full w-full object-contain rounded-md" />
             ) : (
               <div className="flex items-center justify-around w-full h-full">
-                <button onClick={() => cameraInputRef.current?.click()} className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg hover:bg-gray-100 transition-colors w-1/2 h-full">
-                  <CameraIcon className="h-10 w-10 text-gray-700" />
-                  <span className="font-semibold text-gray-700">カメラ</span>
+                <button onClick={() => cameraInputRef.current?.click()} className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors w-1/2 h-full">
+                  <CameraIcon className="h-10 w-10 text-gray-700 dark:text-gray-300" />
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">カメラ</span>
                 </button>
-                <div className="h-full w-px bg-gray-200"></div>
-                <button onClick={() => galleryInputRef.current?.click()} className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg hover:bg-gray-100 transition-colors w-1/2 h-full">
-                  <ImageIcon className="h-10 w-10 text-gray-700" />
-                  <span className="font-semibold text-gray-700">ギャラリー</span>
+                <div className="h-full w-px bg-gray-200 dark:bg-gray-700"></div>
+                <button onClick={() => galleryInputRef.current?.click()} className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors w-1/2 h-full">
+                  <ImageIcon className="h-10 w-10 text-gray-700 dark:text-gray-300" />
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">ギャラリー</span>
                 </button>
               </div>
             )}
@@ -2797,11 +2798,11 @@ const PlantDiagnosisPage: React.FC<PageProps> = ({ settings, onSettingsChange, h
           
           {image && (
             <div className="flex justify-center gap-4">
-              <button onClick={() => cameraInputRef.current?.click()} className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg text-sm">
+              <button onClick={() => cameraInputRef.current?.click()} className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 font-semibold py-2 px-4 rounded-lg text-sm">
                 <CameraIcon className="h-5 w-5"/>
                 <span>撮り直す</span>
               </button>
-              <button onClick={() => galleryInputRef.current?.click()} className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg text-sm">
+              <button onClick={() => galleryInputRef.current?.click()} className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 font-semibold py-2 px-4 rounded-lg text-sm">
                 <ImageIcon className="h-5 w-5"/>
                 <span>別の写真を選択</span>
               </button>
@@ -2879,22 +2880,22 @@ const SettingsPage: React.FC<{
   return (
     <div className="p-4 space-y-6">
       <div className="space-y-2">
-        <h3 className="text-lg font-bold text-gray-800">基本設定</h3>
-        <div className="bg-white p-4 rounded-lg shadow space-y-4">
+        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">基本設定</h3>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">チーム名</label>
-            <input type="text" value={localSettings.teamName} onChange={e => handleSettingsChange({ teamName: e.target.value })} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">チーム名</label>
+            <input type="text" value={localSettings.teamName} onChange={e => handleSettingsChange({ teamName: e.target.value })} className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">週の始まり</label>
-            <select value={localSettings.startOfWeek} onChange={e => handleSettingsChange({ startOfWeek: e.target.value as any })} className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-white">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">週の始まり</label>
+            <select value={localSettings.startOfWeek} onChange={e => handleSettingsChange({ startOfWeek: e.target.value as any })} className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg bg-white">
               <option value="sunday">日曜日</option>
               <option value="monday">月曜日</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">天気予報エリア</label>
-            <select value={localSettings.weatherPrefecture} onChange={e => handleSettingsChange({ weatherPrefecture: e.target.value })} className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-white">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">天気予報エリア</label>
+            <select value={localSettings.weatherPrefecture} onChange={e => handleSettingsChange({ weatherPrefecture: e.target.value })} className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg bg-white">
               {PREFECTURES.map(pref => <option key={pref} value={pref}>{pref}</option>)}
             </select>
           </div>
@@ -2902,35 +2903,35 @@ const SettingsPage: React.FC<{
       </div>
       
       <div className="space-y-2">
-        <h3 className="text-lg font-bold text-gray-800">AI機能設定</h3>
-        <div className="bg-white p-4 rounded-lg shadow space-y-4">
+        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">AI機能設定</h3>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow space-y-4">
           <div className="flex items-center justify-between">
-            <label htmlFor="enable-ai" className="text-sm font-medium text-gray-700">AIアシスタント機能</label>
+            <label htmlFor="enable-ai" className="text-sm font-medium text-gray-700 dark:text-gray-300">AIアシスタント機能</label>
             <input type="checkbox" id="enable-ai" checked={localSettings.enableAiFeatures} onChange={e => handleSettingsChange({ enableAiFeatures: e.target.checked })} className="h-6 w-11 rounded-full bg-gray-200 after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all checked:bg-green-600 checked:after:translate-x-full focus:ring-0" />
           </div>
         </div>
       </div>
 
       <div className="space-y-2">
-        <h3 className="text-lg font-bold text-gray-800">表示設定</h3>
-        <div className="bg-white p-4 rounded-lg shadow space-y-4">
+        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">表示設定</h3>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow space-y-4">
           <div className="flex items-center justify-between">
-            <label htmlFor="enable-pumice-wash" className="text-sm font-medium text-gray-700">「パミス洗い」作業を表示</label>
+            <label htmlFor="enable-pumice-wash" className="text-sm font-medium text-gray-700 dark:text-gray-300">「パミス洗い」作業を表示</label>
             <input type="checkbox" id="enable-pumice-wash" checked={localSettings.enablePumiceWash} onChange={e => handleSettingsChange({ enablePumiceWash: e.target.checked })} className="h-6 w-11 rounded-full bg-gray-200 after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all checked:bg-green-600 checked:after:translate-x-full focus:ring-0" />
           </div>
         </div>
       </div>
       
       <div className="space-y-2">
-        <h3 className="text-lg font-bold text-gray-800">ローカルデータ管理</h3>
-        <div className="bg-white p-4 rounded-lg shadow space-y-4">
-          <p className="text-sm text-gray-600">デバイスに保存されている栽培記録をCSVファイルとしてインポート／エクスポートします。</p>
+        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">ローカルデータ管理</h3>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-300">デバイスに保存されている栽培記録をCSVファイルとしてインポート／エクスポートします。</p>
           <div className="flex gap-4">
-            <button onClick={onExport} className="flex-1 inline-flex items-center justify-center gap-2 bg-green-100 text-green-800 font-semibold py-3 px-4 rounded-lg hover:bg-green-200 transition-colors">
+            <button onClick={onExport} className="flex-1 inline-flex items-center justify-center gap-2 bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 font-semibold py-3 px-4 rounded-lg hover:bg-green-200 dark:hover:bg-green-800/50 transition-colors">
               <ExportIcon className="h-5 w-5"/>
               <span>エクスポート (CSV)</span>
             </button>
-            <button onClick={() => importInputRef.current?.click()} className="flex-1 inline-flex items-center justify-center gap-2 bg-blue-100 text-blue-800 font-semibold py-3 px-4 rounded-lg hover:bg-blue-200 transition-colors">
+            <button onClick={() => importInputRef.current?.click()} className="flex-1 inline-flex items-center justify-center gap-2 bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 font-semibold py-3 px-4 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors">
               <FileImportIcon className="h-5 w-5"/>
               <span>インポート (CSV)</span>
             </button>
@@ -2946,8 +2947,8 @@ const SettingsPage: React.FC<{
       </div>
 
        <div className="space-y-2">
-          <div className="bg-white p-4 rounded-lg shadow space-y-4">
-              <button onClick={onLogout} className="w-full bg-red-100 text-red-700 font-bold py-3 px-4 rounded-lg hover:bg-red-200 transition-colors flex items-center justify-center gap-2">
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow space-y-4">
+              <button onClick={onLogout} className="w-full bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 font-bold py-3 px-4 rounded-lg hover:bg-red-200 dark:hover:bg-red-800/50 transition-colors flex items-center justify-center gap-2">
                   <LogoutIcon className="h-5 w-5"/>
                   <span>ログアウト</span>
               </button>
@@ -3382,16 +3383,16 @@ const App: React.FC = () => {
 
       return (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onClick={onClose}>
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xs" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-gray-900 text-center mb-4">カメラを使用</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-xs" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 text-center mb-4">カメラを使用</h3>
             <div className="flex flex-col gap-4">
-              <button onClick={onTakePhoto} className="flex flex-col items-center gap-2 p-4 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors w-full">
-                <CameraIcon className="h-8 w-8 text-gray-700" />
-                <span className="font-semibold text-gray-700">写真撮影 (端末へ保存)</span>
+              <button onClick={onTakePhoto} className="flex flex-col items-center gap-2 p-4 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors w-full">
+                <CameraIcon className="h-8 w-8 text-gray-700 dark:text-gray-300" />
+                <span className="font-semibold text-gray-700 dark:text-gray-300">写真撮影 (端末へ保存)</span>
               </button>
-              <button onClick={onDiagnose} className="flex flex-col items-center gap-2 p-4 rounded-lg bg-green-100 hover:bg-green-200 transition-colors w-full">
-                <ObservationIcon className="h-8 w-8 text-green-700" />
-                <span className="font-semibold text-green-700">AI診断</span>
+              <button onClick={onDiagnose} className="flex flex-col items-center gap-2 p-4 rounded-lg bg-green-100 hover:bg-green-200 dark:bg-green-900/50 dark:hover:bg-green-800/50 transition-colors w-full">
+                <ObservationIcon className="h-8 w-8 text-green-700 dark:text-green-400" />
+                <span className="font-semibold text-green-700 dark:text-green-300">AI診断</span>
               </button>
             </div>
           </div>
@@ -3482,7 +3483,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="bg-lime-50 min-h-screen">
+    <div className="bg-lime-50 dark:bg-gray-900 min-h-screen">
       <SaveConfirmationModal isOpen={showSaveConfirm} onConfirm={handleSaveConfirm} onDeny={handleSaveDeny} onClose={() => setShowSaveConfirm(false)} />
       <ConfirmationModal
         isOpen={isConfirmationOpen}
@@ -3537,15 +3538,15 @@ const App: React.FC = () => {
         {renderPage()}
       </main>
       
-      <footer className="fixed bottom-0 left-0 right-0 bg-[#fbf2e9] shadow-top z-20 flex justify-around items-center h-12">
-        <button onClick={handleEmailClick} className="flex flex-col items-center justify-center text-stone-700 hover:text-amber-900 w-1/5 h-full"><PaperPlaneIcon className="h-6 w-6 mb-1"/> <span className="text-xs">メール</span></button>
-        <button onClick={() => handleNavigate('HISTORY')} className="flex flex-col items-center justify-center text-stone-700 hover:text-amber-900 w-1/5 h-full"><CalendarIcon className="h-6 w-6 mb-1"/> <span className="text-xs">カレンダー</span></button>
+      <footer className="fixed bottom-0 left-0 right-0 bg-[#fbf2e9] dark:bg-gray-800 shadow-top z-20 flex justify-around items-center h-12">
+        <button onClick={handleEmailClick} className="flex flex-col items-center justify-center text-stone-700 hover:text-amber-900 dark:text-gray-300 dark:hover:text-amber-400 w-1/5 h-full"><PaperPlaneIcon className="h-6 w-6 mb-1"/> <span className="text-xs">メール</span></button>
+        <button onClick={() => handleNavigate('HISTORY')} className="flex flex-col items-center justify-center text-stone-700 hover:text-amber-900 dark:text-gray-300 dark:hover:text-amber-400 w-1/5 h-full"><CalendarIcon className="h-6 w-6 mb-1"/> <span className="text-xs">カレンダー</span></button>
         
         {/* Prominent Home Button */}
         <div className="w-1/5 h-full flex justify-center items-center">
           <button 
             onClick={() => handleNavigate('DASHBOARD')} 
-            className="flex flex-col items-center justify-center text-green-800 font-bold bg-[#f2e6d9] hover:bg-[#e9d9c8] h-16 w-16 rounded-full transform -translate-y-4 shadow-lg border-4 border-lime-50 transition-all duration-200"
+            className="flex flex-col items-center justify-center text-green-800 dark:text-white font-bold bg-[#f2e6d9] hover:bg-[#e9d9c8] dark:bg-green-800 dark:hover:bg-green-700 h-16 w-16 rounded-full transform -translate-y-4 shadow-lg border-4 border-lime-50 dark:border-gray-900 transition-all duration-200"
             aria-label="ホーム"
           >
             <HomeIcon className="h-7 w-7 mb-0.5"/> 
@@ -3553,8 +3554,8 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        <button onClick={() => handleNavigate('TOOLS')} className="flex flex-col items-center justify-center text-stone-700 hover:text-amber-900 w-1/5 h-full"><ToolsIcon className="h-6 w-6 mb-1"/> <span className="text-xs">ツール</span></button>
-        <button onClick={() => setIsCameraActionModalOpen(true)} className="flex flex-col items-center justify-center text-stone-700 hover:text-amber-900 w-1/5 h-full"><CameraIcon className="h-6 w-6 mb-1"/> <span className="text-xs">カメラ</span></button>
+        <button onClick={() => handleNavigate('TOOLS')} className="flex flex-col items-center justify-center text-stone-700 hover:text-amber-900 dark:text-gray-300 dark:hover:text-amber-400 w-1/5 h-full"><ToolsIcon className="h-6 w-6 mb-1"/> <span className="text-xs">ツール</span></button>
+        <button onClick={() => setIsCameraActionModalOpen(true)} className="flex flex-col items-center justify-center text-stone-700 hover:text-amber-900 dark:text-gray-300 dark:hover:text-amber-400 w-1/5 h-full"><CameraIcon className="h-6 w-6 mb-1"/> <span className="text-xs">カメラ</span></button>
       </footer>
       
       {isDirty && (page === 'NEW_RECORD' || page === 'EDIT_RECORD') && <FloatingSaveButton onClick={() => recordPageRef.current?.handleSubmit()} />}
