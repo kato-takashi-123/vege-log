@@ -1,12 +1,6 @@
-
-
-
-
-
-
 import React, { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
 import { CultivationRecord, WorkType, ObservationStatus, PackageInfo, CropStage, WeatherInfo, PestInfo, VegetableInfo, PlantDiagnosis, FertilizerDetail } from './types';
-import { getDailyQuote, getVegetableInfo, searchPestInfo, extractTextFromImage, analyzeSeedPackage, searchCommonPestsForCrop, searchRecipes, generateRecipeImage, AiSearchResult, searchGardeningTerm, getWeatherInfo, ApiRateLimitError, diagnosePlantHealth } from './services/geminiService';
+import { getDailyQuote, getVegetableInfo, searchPestInfo, extractTextFromImage, analyzeSeedPackage, searchCommonPestsForCrop, searchRecipes, generateRecipeImage, AiSearchResult, searchGardeningTerm, getWeatherInfo, ApiRateLimitError, diagnosePlantHealth, identifyVegetableFromImage } from './services/geminiService';
 import {
   SeedingIcon, PlantingIcon, FertilizingIcon, HarvestingIcon, PestControlIcon, WateringIcon, SeedlingCareIcon,
   CalculatorIcon, ExportIcon, CalendarIcon, CameraIcon, BackIcon, LeafIcon, FileImportIcon,
@@ -79,6 +73,7 @@ type AppSettings = {
   enableAiFeatures: boolean;
   enablePumiceWash: boolean;
   weatherPrefecture: string;
+  darkModeContrast: 'normal' | 'high';
 };
 
 const SETTINGS_KEY = 'veggieLogSettings';
@@ -536,7 +531,9 @@ const CalendarModal: React.FC<{
   for (let day = 1; day <= numDays; day++) {
     const date = new Date(currentDisplayDate.getFullYear(), currentDisplayDate.getMonth(), day);
     const today = new Date();
-    const isToday = date.toDateString() === today.toDateString();
+    today.setHours(0,0,0,0);
+    const isFuture = date > today;
+    const isToday = date.toDateString() === new Date().toDateString();
     const isSelected = initialDate.toDateString() === date.toDateString();
     const { isHoliday, isSaturday, isSunday } = getDayInfo(date);
 
@@ -548,9 +545,13 @@ const CalendarModal: React.FC<{
     daysInGrid.push(
       <div key={day} className="h-10 flex items-center justify-center">
         <button
-          onClick={() => onSelectDate(date)}
+          onClick={() => { if (!isFuture) onSelectDate(date); }}
+          disabled={isFuture}
           className={`w-9 h-9 flex items-center justify-center rounded-full text-sm transition-colors ${
-            isSelected ? 'bg-green-600 text-white font-bold' : isToday ? 'ring-2 ring-green-500' : 'hover:bg-green-100 dark:hover:bg-green-800/50'
+            isSelected ? 'bg-green-600 text-white font-bold' : 
+            isToday ? 'ring-2 ring-green-500' : 
+            isFuture ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed' :
+            'hover:bg-green-100 dark:hover:bg-green-800/50'
           }`}
         >
           <span className={`${isSelected ? 'text-white' : dayColor}`}>{day}</span>
@@ -2024,24 +2025,42 @@ const ToolsPage: React.FC<{ setPage: (page: string) => void }> = ({ setPage }) =
 };
 
 const CalculatorPage: React.FC<PageProps> = ({ setPage, records }) => {
+  const [activeTab, setActiveTab] = useState<'dilution' | 'stock'>('dilution');
+  
+  // State for Dilution Calculator
   const [fertilizer, setFertilizer] = useState<'M-Plus-1' | 'M-Plus-2'>('M-Plus-1');
   const [waterAmount, setWaterAmount] = useState('8');
   const [dilution, setDilution] = useState('400');
   const [selectedDilution, setSelectedDilution] = useState('400');
-  const [result, setResult] = useState(0);
+  const [dilutionResult, setDilutionResult] = useState(0);
+
+  // State for Stock Solution Calculator
+  const [stockSolutionVolume, setStockSolutionVolume] = useState('2');
+  const [stockSolutionResult, setStockSolutionResult] = useState({ mPlus1: 15000, mPlus2: 10000 });
 
   useEffect(() => {
     const water = parseFloat(waterAmount) || 0;
     const dil = parseInt(dilution, 10) || 0;
     if (water > 0 && dil > 0) {
       const neededMl = (water * 1000) / dil;
-      setResult(neededMl);
+      setDilutionResult(neededMl);
     } else {
-      setResult(0);
+      setDilutionResult(0);
     }
   }, [waterAmount, dilution]);
 
-  const capsNeeded = result > 0 ? (result / PET_BOTTLE_CAP_ML).toFixed(1) : 0;
+  useEffect(() => {
+    const volume = parseFloat(stockSolutionVolume) || 0;
+    if (volume > 0) {
+        const mPlus1 = (volume / 100) * 15 * 1000;
+        const mPlus2 = (volume / 100) * 10 * 1000;
+        setStockSolutionResult({ mPlus1, mPlus2 });
+    } else {
+        setStockSolutionResult({ mPlus1: 0, mPlus2: 0 });
+    }
+  }, [stockSolutionVolume]);
+
+  const capsNeeded = dilutionResult > 0 ? (dilutionResult / PET_BOTTLE_CAP_ML).toFixed(1) : 0;
   
   const dilutionOptions = ['200', '400', '600', '800', '1000', 'custom'];
 
@@ -2054,58 +2073,116 @@ const CalculatorPage: React.FC<PageProps> = ({ setPage, records }) => {
   
   return (
     <div className="p-4 space-y-4">
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">液肥の種類</label>
-          <div className="grid grid-cols-2 gap-2">
-            {Object.entries(FERTILIZERS).map(([key, { name }]) => (
-              <button
-                key={key}
-                onClick={() => setFertilizer(key as 'M-Plus-1' | 'M-Plus-2')}
-                className={`p-2 rounded-lg text-sm transition-colors ${fertilizer === key ? 'bg-green-600 text-white font-semibold' : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600'}`}
-              >
-                {name}
-              </button>
-            ))}
-          </div>
-          <div className="text-xs text-gray-600 dark:text-gray-300 mt-2 bg-gray-50 dark:bg-gray-700 p-2 rounded-md">
-            <p><strong>使用目的:</strong> {FERTILIZERS[fertilizer].usage}</p>
-            <p className="mt-1"><strong>主な成分:</strong> {FERTILIZERS[fertilizer].component}</p>
-          </div>
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
+        <div className="flex rounded-lg shadow-sm mb-4">
+          <button
+            onClick={() => setActiveTab('dilution')}
+            className={`flex-1 px-4 py-3 text-sm font-semibold rounded-l-lg transition-colors ${
+              activeTab === 'dilution'
+                ? 'bg-green-600 text-white'
+                : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600'
+            }`}
+          >
+            希釈液
+          </button>
+          <button
+            onClick={() => setActiveTab('stock')}
+            className={`flex-1 px-4 py-3 text-sm font-semibold rounded-r-lg transition-colors ${
+              activeTab === 'stock'
+                ? 'bg-green-600 text-white'
+                : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600'
+            }`}
+          >
+            原液
+          </button>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">水の量（リットル）</label>
-          <input type="number" value={waterAmount} onChange={e => setWaterAmount(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg" placeholder="例: 8" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">希釈倍率（倍）</label>
-          <div className="grid grid-cols-3 gap-2">
-            {dilutionOptions.map(opt => (
-              <button
-                key={opt}
-                onClick={() => handleDilutionSelect(opt)}
-                className={`p-2 rounded-lg text-sm transition-colors ${selectedDilution === opt ? 'bg-green-600 text-white font-semibold' : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600'}`}
-              >
-                {opt === 'custom' ? 'カスタム' : `${opt}倍`}
-              </button>
-            ))}
+
+        {activeTab === 'dilution' && (
+          <div className="space-y-4 fade-in">
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">希釈液肥の作り方</h3>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">液肥の種類</label>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(FERTILIZERS).map(([key, { name }]) => (
+                  <button
+                    key={key}
+                    onClick={() => setFertilizer(key as 'M-Plus-1' | 'M-Plus-2')}
+                    className={`p-2 rounded-lg text-sm transition-colors ${fertilizer === key ? 'bg-green-600 text-white font-semibold' : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600'}`}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+              <div className="text-xs text-gray-600 dark:text-gray-300 mt-2 bg-gray-50 dark:bg-gray-700 p-2 rounded-md">
+                <p><strong>使用目的:</strong> {FERTILIZERS[fertilizer].usage}</p>
+                <p className="mt-1"><strong>主な成分:</strong> {FERTILIZERS[fertilizer].component}</p>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">水の量（リットル）</label>
+              <input type="number" value={waterAmount} onChange={e => setWaterAmount(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg" placeholder="例: 8" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">希釈倍率（倍）</label>
+              <div className="grid grid-cols-3 gap-2">
+                {dilutionOptions.map(opt => (
+                  <button
+                    key={opt}
+                    onClick={() => handleDilutionSelect(opt)}
+                    className={`p-2 rounded-lg text-sm transition-colors ${selectedDilution === opt ? 'bg-green-600 text-white font-semibold' : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600'}`}
+                  >
+                    {opt === 'custom' ? 'カスタム' : `${opt}倍`}
+                  </button>
+                ))}
+              </div>
+              {selectedDilution === 'custom' && (
+                <input
+                  type="number"
+                  value={dilution}
+                  onChange={e => setDilution(e.target.value)}
+                  className="mt-2 w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg"
+                  placeholder="倍率を入力"
+                />
+              )}
+            </div>
+             <div className="bg-green-100 dark:bg-green-800/50 p-4 rounded-xl shadow-md text-center">
+                <p className="text-sm font-medium text-green-800 dark:text-green-300">必要な液肥の量</p>
+                <p className="text-4xl font-bold text-green-700 dark:text-green-400 my-2">{dilutionResult.toFixed(2)}<span className="text-lg ml-1">ml</span></p>
+                <p className="text-green-600 dark:text-green-300">ペットボトルのキャップ 約 <span className="font-bold">{capsNeeded}</span> 杯分</p>
+                <p className="text-xs text-green-700 dark:text-green-400 mt-1">（スクリュー線の上ラインで約5ml）</p>
+            </div>
           </div>
-          {selectedDilution === 'custom' && (
-            <input
-              type="number"
-              value={dilution}
-              onChange={e => setDilution(e.target.value)}
-              className="mt-2 w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg"
-              placeholder="倍率を入力"
-            />
-          )}
-        </div>
-      </div>
-      <div className="bg-green-100 dark:bg-green-800/50 p-4 rounded-xl shadow-md text-center">
-        <p className="text-sm font-medium text-green-800 dark:text-green-300">必要な液肥の量</p>
-        <p className="text-4xl font-bold text-green-700 dark:text-green-400 my-2">{result.toFixed(2)}<span className="text-lg ml-1">ml</span></p>
-        <p className="text-green-600 dark:text-green-300">ペットボトルのキャップ 約 <span className="font-bold">{capsNeeded}</span> 杯分</p>
-        <p className="text-xs text-green-700 dark:text-green-400 mt-1">（スクリュー線の上ラインで約5ml）</p>
+        )}
+
+        {activeTab === 'stock' && (
+          <div className="space-y-4 fade-in">
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">原液（水耕標準培養液）の作り方</h3>
+            <p className="text-xs text-gray-600 dark:text-gray-400">基本比率: 原液100Lあたり M-plus 1号 15kg、M-plus 2号 10kg</p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">作りたい原液の量（リットル）</label>
+              <input 
+                  type="number" 
+                  value={stockSolutionVolume} 
+                  onChange={e => setStockSolutionVolume(e.target.value)} 
+                  className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg" 
+                  placeholder="例: 2" 
+              />
+            </div>
+            <div className="bg-blue-100 dark:bg-blue-800/50 p-4 rounded-xl shadow-md text-center">
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-300">必要な肥料の量</p>
+                <div className="mt-2 text-blue-700 dark:text-blue-400 space-y-1">
+                    <p className="text-2xl font-bold">
+                        M-plus 1号: {stockSolutionResult.mPlus1.toLocaleString()}
+                        <span className="text-lg ml-1">g</span>
+                    </p>
+                    <p className="text-2xl font-bold">
+                        M-plus 2号: {stockSolutionResult.mPlus2.toLocaleString()}
+                        <span className="text-lg ml-1">g</span>
+                    </p>
+                </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2117,6 +2194,10 @@ const RecipeSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, han
   const [isLoading, setIsLoading] = useState(false);
   const [recipes, setRecipes] = useState<any[]>([]);
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  const [image, setImage] = useState<{ file: File, preview: string } | null>(null);
+  const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const { isListening, startListening } = useVoiceRecognition({ onResult: setQuery });
 
@@ -2124,15 +2205,57 @@ const RecipeSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, han
     const cropNames = records.map(r => r.cropName).filter(Boolean);
     return [...new Set(cropNames)];
   }, [records]);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImage({ file, preview: URL.createObjectURL(file) });
+      setQuery(''); // 画像を選択したらテキストをクリア
+      setRecipes([]);
+      setImageUrls({});
+    }
+    e.target.value = '';
+  };
   
-  const handleSearch = useCallback(async (searchQuery: string) => {
-    if (!searchQuery.trim()) return;
+  const handleSourceSelect = (source: 'camera' | 'gallery') => {
+      if (source === 'camera') {
+        cameraInputRef.current?.click();
+      } else {
+        galleryInputRef.current?.click();
+      }
+      setIsSourceModalOpen(false);
+  };
+  
+  const handleSearch = useCallback(async (searchQuery?: string) => {
+    const finalQuery = searchQuery || query;
+    if (!finalQuery.trim() && !image) return;
+
     setIsLoading(true);
     setRecipes([]);
     setImageUrls({});
     
     try {
-      const result = await handleApiCall(() => searchRecipes(searchQuery));
+      let vegetableToSearch = finalQuery.trim();
+
+      if (image && !vegetableToSearch) {
+        const imagePart = await fileToGenerativePart(image.file);
+        const identifiedVegetable = await handleApiCall(() => identifyVegetableFromImage(imagePart));
+        if (identifiedVegetable) {
+          setQuery(identifiedVegetable);
+          vegetableToSearch = identifiedVegetable;
+        } else {
+          alert("画像から野菜を特定できませんでした。");
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      if (!vegetableToSearch) {
+        setIsLoading(false);
+        return;
+      }
+
+      const result = await handleApiCall(() => searchRecipes(vegetableToSearch));
       if (result) {
           const parsed = JSON.parse(result.text);
           setRecipes(parsed.recipes || []);
@@ -2143,7 +2266,7 @@ const RecipeSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, han
     } finally {
       setIsLoading(false);
     }
-  }, [handleApiCall]);
+  }, [query, image, handleApiCall]);
   
   useEffect(() => {
     if (recipes.length > 0) {
@@ -2164,96 +2287,117 @@ const RecipeSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, han
 
   const handleCropButtonClick = (cropName: string) => {
     setQuery(cropName);
+    setImage(null);
     handleSearch(cropName);
   };
 
   return (
-    <div className="p-4 space-y-4">
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
-        <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">レシピ検索</h3>
-        <div className="flex gap-2">
-          <div className="relative flex-grow">
-            <input 
-              type="text" 
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSearch(query)}
-              placeholder="野菜名を入力 (例: トマト)"
-              className="w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg pr-10"
-              disabled={isLoading}
-            />
-            <button onClick={startListening} disabled={isLoading} className={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full ${isListening ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200 dark:hover:bg-gray-600'}`}><MicrophoneIcon className="h-5 w-5" /></button>
+    <>
+      <ImageSourceModal
+        isOpen={isSourceModalOpen}
+        onClose={() => setIsSourceModalOpen(false)}
+        onSelect={handleSourceSelect}
+      />
+      <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={handleImageChange} className="hidden" />
+      <input type="file" accept="image/*" ref={galleryInputRef} onChange={handleImageChange} className="hidden" />
+      <div className="p-4 space-y-4">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
+          <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">レシピ検索</h3>
+          <div className="flex gap-2">
+            <div className="relative flex-grow">
+              <input 
+                type="text" 
+                value={query}
+                onChange={e => { setQuery(e.target.value); if (image) setImage(null); }}
+                onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                placeholder="野菜名を入力または画像で検索"
+                className="w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg pr-20"
+                disabled={isLoading}
+              />
+              <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
+                 <button onClick={() => setIsSourceModalOpen(true)} disabled={isLoading} className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><CameraIcon className="h-5 w-5"/></button>
+                 <button onClick={startListening} disabled={isLoading} className={`p-1 rounded-full ${isListening ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-200 dark:hover:bg-gray-600'}`}><MicrophoneIcon className="h-5 w-5" /></button>
+              </div>
+            </div>
+            <button onClick={() => handleSearch()} disabled={isLoading || (!query.trim() && !image)} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400">
+              検索
+            </button>
           </div>
-          <button onClick={() => handleSearch(query)} disabled={isLoading || !query.trim()} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400">
-            検索
-          </button>
+
+          {image && (
+            <div className="mt-3 relative w-24 h-24 rounded-lg overflow-hidden border">
+              <img src={image.preview} alt="upload preview" className="w-full h-full object-cover" />
+              <button onClick={() => setImage(null)} className="absolute top-0.5 right-0.5 bg-black bg-opacity-50 text-white rounded-full p-0.5"><CloseIcon className="h-4 w-4" /></button>
+            </div>
+          )}
+
+          {cultivatedCrops.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">現在栽培中の作物:</p>
+              <div className="flex flex-wrap gap-2">
+                {cultivatedCrops.map(crop => (
+                  <button
+                    key={crop}
+                    onClick={() => handleCropButtonClick(crop)}
+                    disabled={isLoading}
+                    className="px-3 py-1 text-sm bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 rounded-full hover:bg-green-200 dark:hover:bg-green-800/50 transition-colors disabled:opacity-50"
+                  >
+                    {crop}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-        {cultivatedCrops.length > 0 && (
-          <div className="mt-3">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">現在栽培中の作物:</p>
-            <div className="flex flex-wrap gap-2">
-              {cultivatedCrops.map(crop => (
-                <button
-                  key={crop}
-                  onClick={() => handleCropButtonClick(crop)}
-                  disabled={isLoading}
-                  className="px-3 py-1 text-sm bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 rounded-full hover:bg-green-200 dark:hover:bg-green-800/50 transition-colors disabled:opacity-50"
-                >
-                  {crop}
-                </button>
-              ))}
+
+        {isLoading && <div className="text-center p-4">レシピを検索中...</div>}
+
+        <div className="space-y-4">
+          {recipes.map((recipe, index) => (
+            <div key={index} className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden">
+              <div className="h-40 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                {imageUrls[index] ? (
+                  <img src={imageUrls[index]} alt={recipe.recipeName} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="animate-pulse w-full h-full bg-gray-300 dark:bg-gray-600"></div>
+                )}
+              </div>
+              <div className="p-4">
+                  <h4 className="font-bold text-lg text-gray-800 dark:text-gray-200">{recipe.recipeName}</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{recipe.description}</p>
+                  
+                  <div className="flex mt-3">
+                      <div className="w-2/5 pr-2">
+                          <h5 className="font-semibold text-sm text-gray-700 dark:text-gray-300">主な材料</h5>
+                          <ul className="list-disc list-outside pl-4 text-sm text-gray-600 dark:text-gray-300 mt-1 space-y-0.5">
+                              {recipe.ingredients.map((ing: string, i: number) => <li key={i}>{ing}</li>)}
+                          </ul>
+                      </div>
+                      <div className="w-3/5 pl-2 border-l border-gray-200 dark:border-gray-600">
+                           <h5 className="font-semibold text-sm text-gray-700 dark:text-gray-300">作り方の要約</h5>
+                          <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                             <FormattedContent content={recipe.instructionsSummary || ''} />
+                          </div>
+                      </div>
+                  </div>
+
+                  <div className="mt-4">
+                      <a
+                          href={`https://www.google.com/search?q=${encodeURIComponent(recipe.recipeName + " レシピ")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center gap-2 w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                          <ExternalLinkIcon className="h-5 w-5" />
+                          <span>Webで詳細を見る</span>
+                      </a>
+                  </div>
+              </div>
             </div>
-          </div>
-        )}
+          ))}
+        </div>
       </div>
-
-      {isLoading && <div className="text-center p-4">レシピを検索中...</div>}
-
-      <div className="space-y-4">
-        {recipes.map((recipe, index) => (
-          <div key={index} className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden">
-            <div className="h-40 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-              {imageUrls[index] ? (
-                <img src={imageUrls[index]} alt={recipe.recipeName} className="w-full h-full object-cover" />
-              ) : (
-                <div className="animate-pulse w-full h-full bg-gray-300 dark:bg-gray-600"></div>
-              )}
-            </div>
-            <div className="p-4">
-                <h4 className="font-bold text-lg text-gray-800 dark:text-gray-200">{recipe.recipeName}</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{recipe.description}</p>
-                
-                <div className="flex mt-3">
-                    <div className="w-2/5 pr-2">
-                        <h5 className="font-semibold text-sm text-gray-700 dark:text-gray-300">主な材料</h5>
-                        <ul className="list-disc list-outside pl-4 text-sm text-gray-600 dark:text-gray-300 mt-1 space-y-0.5">
-                            {recipe.ingredients.map((ing: string, i: number) => <li key={i}>{ing}</li>)}
-                        </ul>
-                    </div>
-                    <div className="w-3/5 pl-2 border-l border-gray-200 dark:border-gray-600">
-                         <h5 className="font-semibold text-sm text-gray-700 dark:text-gray-300">作り方の要約</h5>
-                        <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                           <FormattedContent content={recipe.instructionsSummary || ''} />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="mt-4">
-                    <a
-                        href={`https://www.google.com/search?q=${encodeURIComponent(recipe.recipeName + " レシピ")}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center gap-2 w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                        <ExternalLinkIcon className="h-5 w-5" />
-                        <span>Webで詳細を見る</span>
-                    </a>
-                </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+    </>
   );
 };
 
@@ -2919,6 +3063,31 @@ const SettingsPage: React.FC<{
             <label htmlFor="enable-pumice-wash" className="text-sm font-medium text-gray-700 dark:text-gray-300">「パミス洗い」作業を表示</label>
             <input type="checkbox" id="enable-pumice-wash" checked={localSettings.enablePumiceWash} onChange={e => handleSettingsChange({ enablePumiceWash: e.target.checked })} className="h-6 w-11 rounded-full bg-gray-200 after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all checked:bg-green-600 checked:after:translate-x-full focus:ring-0" />
           </div>
+           <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">ダークモードのコントラスト</label>
+            <div className="mt-2 flex rounded-lg shadow-sm">
+              <button
+                onClick={() => handleSettingsChange({ darkModeContrast: 'normal' })}
+                className={`flex-1 px-4 py-2 text-sm font-medium rounded-l-lg transition-colors ${
+                  localSettings.darkModeContrast === 'normal'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600'
+                }`}
+              >
+                標準
+              </button>
+              <button
+                onClick={() => handleSettingsChange({ darkModeContrast: 'high' })}
+                className={`flex-1 px-4 py-2 text-sm font-medium rounded-r-lg transition-colors ${
+                  localSettings.darkModeContrast === 'high'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600'
+                }`}
+              >
+                ハイコントラスト
+              </button>
+            </div>
+          </div>
         </div>
       </div>
       
@@ -2987,6 +3156,7 @@ const App: React.FC = () => {
     enableAiFeatures: true,
     enablePumiceWash: true,
     weatherPrefecture: '愛知県',
+    darkModeContrast: 'normal',
   });
 
   const recordPageRef = useRef<RecordPageHandle>(null);
@@ -3032,6 +3202,16 @@ const App: React.FC = () => {
     }
   }, [settings, isLoading]);
   
+  // Handle dark mode contrast setting
+  useEffect(() => {
+    const root = document.documentElement;
+    if (settings.darkModeContrast === 'high') {
+      root.classList.add('dark-high-contrast');
+    } else {
+      root.classList.remove('dark-high-contrast');
+    }
+  }, [settings.darkModeContrast]);
+
   const showToast = (message: string, duration: number = 2000) => {
     setToastMessage(message);
     setTimeout(() => setToastMessage(''), duration);
@@ -3347,7 +3527,7 @@ const App: React.FC = () => {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
 
     if (latestRecordForLane) {
-      handleNavigate('EDIT_RECORD', { recordId: latestRecordForLane.id });
+      handleNavigate('EDIT_RECORD', { recordId: latestRecordForLane.id, fromDashboard: true });
     } else {
       handleNavigate('NEW_RECORD', { lane });
     }
@@ -3426,22 +3606,54 @@ const App: React.FC = () => {
           />
         </>
       );
-       case 'EDIT_RECORD': return (
-        <>
-          <PageHeader title="記録の編集" onBack={() => handleNavigate('DASHBOARD')} onMenuClick={() => setIsMenuOpen(true)}/>
-          <RecordPage
-            ref={recordPageRef}
-            onSaveRecord={handleSaveRecord}
-            onBack={() => handleNavigate('DASHBOARD')}
-            initialData={records.find(r => r.id === pageParams.recordId)}
-            onDirtyChange={handleDirtyChange}
-            onConfirmationRequest={handleConfirmationRequest}
-            onClearFutureRecords={handleClearFutureRecords}
-            onValidationError={showToast}
-            {...commonProps}
-          />
-        </>
-      );
+       case 'EDIT_RECORD': {
+        const recordToEdit = records.find(r => r.id === pageParams.recordId);
+        let initialDataForEdit;
+
+        if (pageParams.fromDashboard && recordToEdit) {
+            // From dashboard: create a new record for today, using the latest record as a template.
+            initialDataForEdit = {
+                // Persistent info from the template record
+                cropName: recordToEdit.cropName,
+                cultivationLane: recordToEdit.cultivationLane,
+                seedPackagePhotoFront: recordToEdit.seedPackagePhotoFront,
+                seedPackagePhotoBack: recordToEdit.seedPackagePhotoBack,
+                aiPackageAnalysis: recordToEdit.aiPackageAnalysis,
+                aiPestInfo: recordToEdit.aiPestInfo,
+                
+                // New info for today's record
+                id: new Date().toISOString(),
+                date: toISODateString(new Date()),
+                workTypes: [],
+                cropStages: [],
+                observationStatus: [],
+                pestDetails: [],
+                memo: '',
+                photoBase64: '',
+                fertilizingDetails: [],
+            };
+        } else {
+            // From calendar: edit the actual selected record.
+            initialDataForEdit = recordToEdit;
+        }
+
+        return (
+          <>
+            <PageHeader title="記録の編集" onBack={() => handleNavigate('DASHBOARD')} onMenuClick={() => setIsMenuOpen(true)}/>
+            <RecordPage
+              ref={recordPageRef}
+              onSaveRecord={handleSaveRecord}
+              onBack={() => handleNavigate('DASHBOARD')}
+              initialData={initialDataForEdit}
+              onDirtyChange={handleDirtyChange}
+              onConfirmationRequest={handleConfirmationRequest}
+              onClearFutureRecords={handleClearFutureRecords}
+              onValidationError={showToast}
+              {...commonProps}
+            />
+          </>
+        );
+      }
       case 'HISTORY': return (
         <>
           <PageHeader title="カレンダー" {...pageHeaderProps} />

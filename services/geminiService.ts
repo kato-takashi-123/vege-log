@@ -315,6 +315,26 @@ export const generateRecipeImage = async (prompt: string): Promise<string> => {
   return "https://via.placeholder.com/320x180.png?text=Generation+Failed";
 };
 
+export const identifyVegetableFromImage = async (image: { mimeType: string; data: string }): Promise<string> => {
+  const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: {
+      parts: [
+        { text: "この画像に写っている主要な野菜の名前を一つだけ、簡潔に答えてください。野菜以外のものが写っている場合は、「野菜が見つかりません」とだけ答えてください。" },
+        { inlineData: { mimeType: image.mimeType, data: image.data } }
+      ]
+    },
+    config: {
+      temperature: 0.1,
+    }
+  }));
+  const vegetableName = response.text.trim();
+  if (vegetableName.includes("野菜が見つかりません")) {
+    return "";
+  }
+  return vegetableName;
+};
+
 export const searchRecipes = async (vegetableName: string): Promise<AiSearchResult> => {
     if (!vegetableName.trim()) return { text: "" };
     

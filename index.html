@@ -41,6 +41,56 @@
       .fade-in {
         animation: fadeIn 0.5s ease-out forwards;
       }
+      /* High Contrast Dark Mode */
+      @media (prefers-color-scheme: dark) {
+        html.dark-high-contrast {
+          --hc-bg-primary: #0a0a0a;
+          --hc-bg-secondary: #1a1a1a;
+          --hc-bg-tertiary: #2a2a2a;
+          --hc-text-primary: #ffffff;
+          --hc-text-secondary: #e0e0e0;
+          --hc-text-muted: #b0b0b0;
+          --hc-border-primary: #444444;
+          --hc-accent-green-text: #6ee7b7;
+        }
+
+        html.dark-high-contrast body.dark\:bg-gray-900 {
+          background-color: var(--hc-bg-primary);
+        }
+        
+        html.dark-high-contrast .dark\:bg-gray-800,
+        html.dark-high-contrast .dark\:bg-gray-900 {
+          background-color: var(--hc-bg-secondary);
+        }
+        
+        html.dark-high-contrast .dark\:bg-gray-700 {
+           background-color: var(--hc-bg-tertiary);
+        }
+
+        html.dark-high-contrast .dark\:text-white,
+        html.dark-high-contrast .dark\:text-gray-100,
+        html.dark-high-contrast .dark\:text-gray-200 {
+          color: var(--hc-text-primary);
+        }
+        
+        html.dark-high-contrast .dark\:text-gray-300 {
+          color: var(--hc-text-secondary);
+        }
+        
+        html.dark-high-contrast .dark\:text-gray-400 {
+          color: var(--hc-text-muted);
+        }
+
+        html.dark-high-contrast .dark\:border-gray-600,
+        html.dark-high-contrast .dark\:border-gray-700 {
+          border-color: var(--hc-border-primary);
+        }
+        
+        html.dark-high-contrast .dark\:text-green-300,
+        html.dark-high-contrast .dark\:text-green-400 {
+          color: var(--hc-accent-green-text);
+        }
+      }
     </style>
   <script type="importmap">
 {
