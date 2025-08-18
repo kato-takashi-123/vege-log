@@ -77,9 +77,11 @@ export interface WeatherInfo {
   };
   hourly: {
     time: string;
+    date: string;
     temperature: number;
     precipitation: number;
     weather: string;
+    humidity: number;
   }[];
   weekly: {
     date: string;
@@ -87,6 +89,7 @@ export interface WeatherInfo {
     temp_max: number;
     temp_min: number;
     weather: string;
+    pop: number;
   }[];
 }
 
@@ -140,3 +143,13 @@ export interface PlantDiagnosis {
     recommendation: string;
   };
 }
+
+export type AppSettings = {
+  teamName: string;
+  startOfWeek: 'sunday' | 'monday';
+  enableAiFeatures: boolean;
+  enablePumiceWash: boolean;
+  weatherLocation: string;
+  darkModeContrast: 'normal' | 'high';
+  openWeatherApiKey?: string;
+};

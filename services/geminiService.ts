@@ -1,7 +1,7 @@
 
 
 import { GoogleGenAI, Type, GenerateContentResponse, GenerateImagesResponse } from "@google/genai";
-import { WeatherInfo, PestInfo, VegetableInfo, PlantDiagnosis } from '../types';
+import { WeatherInfo, PestInfo, VegetableInfo, PlantDiagnosis, AppSettings } from '../types';
 
 if (!process.env.API_KEY) {
   console.warn("API_KEY environment variable not set. Gemini features will not work.");
@@ -438,24 +438,15 @@ export const searchGardeningTerm = async (query: string): Promise<AiSearchResult
   };
 };
 
-export const getWeatherInfo = async (location: { latitude: number; longitude: number } | { name: string }): Promise<WeatherInfo> => {
-    const cacheKey = 'weatherInfoCache';
+export const getWeatherInfo = async (location: string, apiKey: string): Promise<WeatherInfo> => {
+    const cacheKey = `openWeatherCache_${location}`;
     const cacheDuration = 15 * 60 * 1000; // 15 minutes
 
     try {
         const cachedData = localStorage.getItem(cacheKey);
         if (cachedData) {
-            const { data, timestamp, loc } = JSON.parse(cachedData);
-            const isCacheValid = (Date.now() - timestamp) < cacheDuration;
-
-            let isLocationSame = false;
-            if ('latitude' in location && loc && 'latitude' in loc) {
-                isLocationSame = Math.abs(loc.latitude - location.latitude) < 0.1 && Math.abs(loc.longitude - location.longitude) < 0.1;
-            } else if ('name' in location && loc && 'name' in loc) {
-                isLocationSame = loc.name === location.name;
-            }
-            
-            if (isCacheValid && isLocationSame) {
+            const { data, timestamp } = JSON.parse(cachedData);
+            if ((Date.now() - timestamp) < cacheDuration) {
                 return data;
             }
         }
@@ -464,89 +455,89 @@ export const getWeatherInfo = async (location: { latitude: number; longitude: nu
         localStorage.removeItem(cacheKey);
     }
 
-    const weatherSchema = {
-        type: Type.OBJECT,
-        properties: {
-            location: { type: Type.STRING, description: 'The name of the location for the weather forecast (e.g., "Tokyo, JP").' },
+    const OWM_API_ENDPOINT = "https://api.openweathermap.org/data/2.5";
+
+    try {
+        const [currentRes, forecastRes] = await Promise.all([
+            fetch(`${OWM_API_ENDPOINT}/weather?q=${location}&appid=${apiKey}&units=metric&lang=ja`),
+            fetch(`${OWM_API_ENDPOINT}/forecast?q=${location}&appid=${apiKey}&units=metric&lang=ja`),
+        ]);
+
+        if (!currentRes.ok) {
+            const errorData = await currentRes.json();
+            throw new Error(`現在の天気の取得に失敗しました: ${errorData.message}`);
+        }
+        if (!forecastRes.ok) {
+            const errorData = await forecastRes.json();
+            throw new Error(`天気予報の取得に失敗しました: ${errorData.message}`);
+        }
+
+        const currentData = await currentRes.json();
+        const forecastData = await forecastRes.json();
+
+        // データ変換ロジック
+        const weatherInfo: WeatherInfo = {
+            location: `${currentData.name}, ${currentData.sys.country}`,
             current: {
-                type: Type.OBJECT,
-                properties: {
-                    weather: { type: Type.STRING, description: 'A brief description of the current weather (e.g., "晴れ", "曇り").' },
-                    temperature: { type: Type.NUMBER, description: 'Current temperature in Celsius.' },
-                    humidity: { type: Type.NUMBER, description: 'Current humidity in percent.' },
-                    wbgt: { type: Type.NUMBER, description: 'Current Wet-Bulb Globe Temperature (WBGT) in Celsius. If official data is not available, return null.' },
-                },
-                required: ['weather', 'temperature', 'humidity']
+                weather: currentData.weather[0]?.description || '不明',
+                temperature: currentData.main.temp,
+                humidity: currentData.main.humidity,
+                wbgt: undefined, // OpenWeatherMapはWBGTを提供しない
             },
-            hourly: {
-                type: Type.ARRAY,
-                description: '3-hourly forecast for today and tomorrow.',
-                items: {
-                    type: Type.OBJECT,
-                    properties: {
-                        time: { type: Type.STRING, description: 'The time for the forecast (e.g., "15:00").' },
-                        temperature: { type: Type.NUMBER, description: 'Forecasted temperature in Celsius.' },
-                        precipitation: { type: Type.NUMBER, description: 'Forecasted precipitation in mm.' },
-                        weather: { type: Type.STRING, description: 'Forecasted weather description.' },
-                    },
-                    required: ['time', 'temperature', 'precipitation', 'weather']
-                }
-            },
-            weekly: {
-                type: Type.ARRAY,
-                description: 'Daily forecast for the next 7 days, starting from today.',
-                items: {
-                    type: Type.OBJECT,
-                    properties: {
-                        date: { type: Type.STRING, description: 'The date for the forecast in YYYY-MM-DD format.'},
-                        day: { type: Type.STRING, description: 'The day of the week (e.g., "火曜日").' },
-                        temp_max: { type: Type.NUMBER, description: 'Maximum temperature in Celsius.' },
-                        temp_min: { type: Type.NUMBER, description: 'Minimum temperature in Celsius.' },
-                        weather: { type: Type.STRING, description: 'Forecasted weather description.' },
-                    },
-                    required: ['date', 'day', 'temp_max', 'temp_min', 'weather']
-                }
-            }
-        },
-        required: ['location', 'current', 'hourly', 'weekly']
-    };
-
-    const now = new Date();
-    const formattedDateTime = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${now.getHours()}時${now.getMinutes()}分`;
-    
-    const prompt = 'latitude' in location
-        ? `現在の日時は「${formattedDateTime}」です。緯度${location.latitude}、経度${location.longitude}の地点について、以下の情報をJSONで返してください。1. 現在の天気、気温（摂氏）、湿度（％）。2. 暑さ指数（WBGT、摂氏）。環境省などの公式な予報データが見つかる場合のみ数値で返し、見つからない場合はnullを返してください。3. 今日と明日の3時間ごとの天気予報（時刻、気温、降水量mm、天気概要）。4. 今日から7日間の日ごとの天気予報（日付 YYYY-MM-DD形式、曜日、最高・最低気温、天気概要）。`
-        : `現在の日時は「${formattedDateTime}」です。「${location.name}」の主要都市について、以下の情報をJSONで返してください。1. 現在の天気、気温（摂氏）、湿度（％）。2. 暑さ指数（WBGT、摂氏）。環境省などの公式な予報データが見つかる場合のみ数値で返し、見つからない場合はnullを返してください。3. 今日と明日の3時間ごとの天気予報（時刻、気温、降水量mm、天気概要）。4. 今日から7日間の日ごとの天気予報（日付 YYYY-MM-DD形式、曜日、最高・最低気温、天気概要）。`;
-        
-    const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: weatherSchema,
-        },
-    }));
-    
-    let newWeatherInfo: WeatherInfo;
-    try {
-        const jsonText = response.text.trim();
-        newWeatherInfo = JSON.parse(jsonText);
-    } catch(parseError) {
-        console.error("Failed to parse Gemini response as JSON for weather:", response.text, parseError);
-        throw new Error("AIからの天候応答が不正な形式でした。");
-    }
-
-    try {
-        const cacheEntry = {
-            data: newWeatherInfo,
-            timestamp: Date.now(),
-            loc: location,
+            hourly: forecastData.list.slice(0, 16).map((item: any) => ({ // 48時間分 (3h * 16)
+                time: new Date(item.dt * 1000).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                date: new Date(item.dt * 1000).toISOString().split('T')[0],
+                temperature: item.main.temp,
+                precipitation: item.rain?.['3h'] || 0,
+                weather: item.weather[0]?.description || '不明',
+                humidity: item.main.humidity,
+            })),
+            weekly: Object.values(
+                forecastData.list.reduce((acc: any, item: any) => {
+                    const dateStr = new Date(item.dt * 1000).toISOString().split('T')[0];
+                    if (!acc[dateStr]) {
+                        acc[dateStr] = {
+                            date: dateStr,
+                            day: new Date(item.dt * 1000).toLocaleDateString('ja-JP', { weekday: 'long' }),
+                            temp_max: -Infinity,
+                            temp_min: Infinity,
+                            weather_descriptions: [],
+                            pops: [],
+                        };
+                    }
+                    acc[dateStr].temp_max = Math.max(acc[dateStr].temp_max, item.main.temp_max);
+                    acc[dateStr].temp_min = Math.min(acc[dateStr].temp_min, item.main.temp_min);
+                    if (item.weather[0]?.description) {
+                        acc[dateStr].weather_descriptions.push(item.weather[0].description);
+                    }
+                    acc[dateStr].pops.push(item.pop || 0);
+                    return acc;
+                }, {})
+            ).map((day: any) => {
+                // その日で最も頻度の高い天気を採用する
+                const weatherFrequency = day.weather_descriptions.reduce((freq: any, desc: string) => {
+                    freq[desc] = (freq[desc] || 0) + 1;
+                    return freq;
+                }, {});
+                const mostFrequentWeather = Object.keys(weatherFrequency).sort((a,b) => weatherFrequency[b] - weatherFrequency[a])[0] || '不明';
+                
+                return {
+                    date: day.date,
+                    day: day.day,
+                    temp_max: day.temp_max,
+                    temp_min: day.temp_min,
+                    weather: mostFrequentWeather,
+                    pop: Math.max(...day.pops),
+                };
+            }).slice(0, 7),
         };
-        localStorage.setItem(cacheKey, JSON.stringify(cacheEntry));
-    } catch (error) {
-        console.error("Failed to write weather info to cache", error);
-    }
 
-    return newWeatherInfo;
+        localStorage.setItem(cacheKey, JSON.stringify({ data: weatherInfo, timestamp: Date.now() }));
+        return weatherInfo;
+
+    } catch (error) {
+        console.error("OpenWeatherMap API call failed:", error);
+        throw error; // エラーを呼び出し元に伝える
+    }
 };
 // #endregion

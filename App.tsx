@@ -1,5 +1,7 @@
+
+
 import React, { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
-import { CultivationRecord, WorkType, ObservationStatus, PackageInfo, CropStage, WeatherInfo, PestInfo, VegetableInfo, PlantDiagnosis, FertilizerDetail } from './types';
+import { CultivationRecord, WorkType, ObservationStatus, PackageInfo, CropStage, WeatherInfo, PestInfo, VegetableInfo, PlantDiagnosis, FertilizerDetail, AppSettings } from './types';
 import { getDailyQuote, getVegetableInfo, searchPestInfo, extractTextFromImage, analyzeSeedPackage, searchCommonPestsForCrop, searchRecipes, generateRecipeImage, AiSearchResult, searchGardeningTerm, getWeatherInfo, ApiRateLimitError, diagnosePlantHealth, identifyVegetableFromImage } from './services/geminiService';
 import {
   SeedingIcon, PlantingIcon, FertilizingIcon, HarvestingIcon, PestControlIcon, WateringIcon, SeedlingCareIcon,
@@ -55,26 +57,7 @@ const PASTEL_COLORS = [
   'bg-indigo-200', 'bg-purple-200'
 ];
 
-const PREFECTURES = [
-  '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
-  '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
-  '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県',
-  '静岡県', '愛知県', '三重県', '滋賀県', '京都府', '大阪府', '兵庫県',
-  '奈良県', '和歌山県', '鳥取県', '島根県', '岡山県', '広島県', '山口県',
-  '徳島県', '香川県', '愛媛県', '高知県', '福岡県', '佐賀県', '長崎県',
-  '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'
-];
-
 const PET_BOTTLE_CAP_ML = 5;
-
-type AppSettings = {
-  teamName: string;
-  startOfWeek: 'sunday' | 'monday';
-  enableAiFeatures: boolean;
-  enablePumiceWash: boolean;
-  weatherPrefecture: string;
-  darkModeContrast: 'normal' | 'high';
-};
 
 const SETTINGS_KEY = 'veggieLogSettings';
 
@@ -588,6 +571,7 @@ type PageProps = {
   onBack?: () => void;
   handleApiCall: ApiCallHandler;
   records: CultivationRecord[];
+  pageParams?: any;
 };
 
 const PageHeader: React.FC<{ title: string; onBack?: () => void; onMenuClick?: () => void; }> = ({ title, onBack, onMenuClick }) => (
@@ -825,7 +809,7 @@ const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
 
 const Dashboard: React.FC<{ 
   records: CultivationRecord[];
-  onLaneClick: (lane: string) => void;
+  onLaneClick: (recordData: Partial<CultivationRecord>) => void;
   settings: AppSettings;
   handleApiCall: ApiCallHandler;
 }> = ({ records, onLaneClick, settings, handleApiCall }) => {
@@ -885,11 +869,12 @@ const Dashboard: React.FC<{
           {CULTIVATION_LANES.map((lane, index) => {
             const current = laneStatus[lane];
             const cardColor = PASTEL_COLORS[index % PASTEL_COLORS.length];
+            const recordData = current ? current : { cultivationLane: lane, date: toISODateString(new Date()) };
             
             return (
               <button
                 key={lane}
-                onClick={() => onLaneClick(lane)}
+                onClick={() => onLaneClick(recordData)}
                 className={`${cardColor} rounded-xl shadow-md h-auto min-h-[7rem] w-full hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transform transition-transform duration-200 overflow-hidden flex items-stretch`}
               >
                 {/* Left Part: Info */}
@@ -2002,7 +1987,7 @@ const ToolsPage: React.FC<{ setPage: (page: string) => void }> = ({ setPage }) =
     { name: '野菜の育て方検索', icon: VegetableSearchIcon, page: 'VEGETABLE_SEARCH' },
     { name: '病害虫・症状検索', icon: PestSearchIcon, page: 'PEST_SEARCH' },
     { name: '園芸用語辞典', icon: DictionaryIcon, page: 'TERM_SEARCH' },
-    { name: '天気・暑さ指数', icon: WeatherIcon, page: 'WEATHER' },
+    { name: '天気予報', icon: WeatherIcon, page: 'WEATHER' },
     { name: 'レシピ検索', icon: RecipeIcon, page: 'RECIPE_SEARCH' },
   ];
 
@@ -2650,131 +2635,20 @@ const TermSearchPage: React.FC<PageProps> = ({ settings, onSettingsChange, handl
   );
 };
 
-const WeatherChart: React.FC<{ hourlyData: WeatherInfo['hourly']; startDate: string }> = ({ hourlyData, startDate }) => {
-    const CHART_HEIGHT = 240;
-    const ITEM_WIDTH = 65;
-    const TEMP_AREA_HEIGHT = 80;
-    const ICON_AREA_HEIGHT = 50;
-    const PRECIP_AREA_HEIGHT = 40;
-    const PADDING_TOP = 20;
-    const PADDING_BOTTOM = 50;
-
-    if (!hourlyData || hourlyData.length === 0) return null;
-
-    const svgWidth = hourlyData.length * ITEM_WIDTH;
-
-    const temps = hourlyData.map(h => h.temperature);
-    const precips = hourlyData.map(h => h.precipitation);
-    const minTemp = Math.min(...temps) - 2;
-    const maxTemp = Math.max(...temps) + 2;
-    const maxPrecip = Math.max(...precips, 1);
-
-    const tempToY = (temp: number) => PADDING_TOP + TEMP_AREA_HEIGHT - ((temp - minTemp) / (maxTemp - minTemp)) * TEMP_AREA_HEIGHT;
-    const precipToHeight = (precip: number) => (precip / maxPrecip) * PRECIP_AREA_HEIGHT;
-    
-    const dates = useMemo(() => {
-        const startingDate = parseDateString(startDate);
-        let lastHour = -1;
-        let dayOffset = 0;
-
-        return hourlyData.map(h => {
-            const currentHour = parseInt(h.time.split(':')[0], 10);
-            if (currentHour < lastHour) {
-                dayOffset++;
-            }
-            lastHour = currentHour;
-            
-            const currentDate = new Date(startingDate);
-            currentDate.setDate(startingDate.getDate() + dayOffset);
-            
-            return `${currentDate.getMonth() + 1}/${currentDate.getDate()}`;
-        });
-    }, [hourlyData, startDate]);
-    
-    const linePath = hourlyData.map((h, i) => {
-        const x = i * ITEM_WIDTH + ITEM_WIDTH / 2;
-        const y = tempToY(h.temperature);
-        return `${i === 0 ? 'M' : 'L'} ${x},${y}`;
-    }).join(' ');
-
-    const PRECIP_Y_BASE = PADDING_TOP + TEMP_AREA_HEIGHT + ICON_AREA_HEIGHT + PRECIP_AREA_HEIGHT;
-
-    return (
-        <div className="overflow-x-auto bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg -mx-2">
-            <svg width={svgWidth} height={CHART_HEIGHT} className="select-none">
-                {/* Precipitation Bars and Labels */}
-                {hourlyData.map((h, i) => {
-                    const barHeight = precipToHeight(h.precipitation);
-                    const x = i * ITEM_WIDTH + (ITEM_WIDTH - 20) / 2;
-                    const y = PRECIP_Y_BASE - barHeight;
-                    return (
-                        <g key={`precip-${i}`}>
-                            <rect x={x} y={y} width={20} height={barHeight} fill="#60a5fa" rx="4" ry="4"/>
-                            {h.precipitation > 0.1 && (
-                                <text x={x + 10} y={y - 4} textAnchor="middle" fontSize="10" className="fill-gray-600 dark:fill-gray-300">
-                                    {h.precipitation}mm
-                                </text>
-                            )}
-                        </g>
-                    );
-                })}
-
-                {/* Weather Icons */}
-                {hourlyData.map((h, i) => {
-                     const x = i * ITEM_WIDTH + (ITEM_WIDTH - 40) / 2;
-                     const y = PADDING_TOP + TEMP_AREA_HEIGHT;
-                     return (
-                         <foreignObject key={`icon-${i}`} x={x} y={y} width="40" height="40">
-                             {getWeatherIllustration(h.weather, "w-10 h-10")}
-                         </foreignObject>
-                     );
-                })}
-
-                {/* Temperature Line */}
-                <path d={linePath} fill="none" stroke="#f97316" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-
-                {/* Temperature Points & Labels */}
-                {hourlyData.map((h, i) => {
-                    const x = i * ITEM_WIDTH + ITEM_WIDTH / 2;
-                    const y = tempToY(h.temperature);
-                    return (
-                        <g key={`point-${i}`}>
-                            <circle cx={x} cy={y} r="4" fill="#f97316" stroke="white" strokeWidth="2"/>
-                            <text x={x} y={y - 10} textAnchor="middle" fontWeight="bold" fontSize="14" className="fill-gray-700 dark:fill-gray-300">
-                                {Math.round(h.temperature)}°
-                            </text>
-                        </g>
-                    );
-                })}
-
-                {/* Date & Time Labels at bottom */}
-                {hourlyData.map((h, i) => {
-                    const x = i * ITEM_WIDTH + ITEM_WIDTH / 2;
-                    return (
-                        <g key={`time-${i}`}>
-                             <text x={x} y={CHART_HEIGHT - 25} textAnchor="middle" fontSize="12" className="fill-gray-600 dark:fill-gray-400">
-                                {dates[i]}
-                            </text>
-                            <text x={x} y={CHART_HEIGHT - 8} textAnchor="middle" fontWeight="bold" fontSize="14" className="fill-gray-800 dark:fill-gray-200">
-                                {h.time}
-                            </text>
-                        </g>
-                    );
-                })}
-            </svg>
-        </div>
-    );
-};
-
 const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleApiCall, records }) => {
     const [weather, setWeather] = useState<WeatherInfo | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const fetchWeatherByName = async (name: string) => {
-            if (!name) {
-                setError("都道府県が設定されていません。設定ページで確認してください。");
+        const fetchWeather = async (location: string, apiKey?: string) => {
+            if (!apiKey) {
+                setError("OpenWeatherMap APIキーが設定されていません。設定ページで入力してください。");
+                setIsLoading(false);
+                return;
+            }
+            if (!location) {
+                setError("天気予報エリアが設定されていません。設定ページで入力してください。");
                 setIsLoading(false);
                 return;
             }
@@ -2782,32 +2656,35 @@ const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleAp
             setError(null);
             setWeather(null);
             try {
-                const data = await handleApiCall(() => getWeatherInfo({ name }));
+                const data = await getWeatherInfo(location, apiKey);
                 if (data) {
                     setWeather(data);
                 } else {
-                    setError(`「${name}」の天気情報の取得を中止しました。`);
+                    setError(`「${location}」の天気情報の取得に失敗しました。`);
                 }
-            } catch (e) {
-                console.error(`Failed to fetch weather for ${name}`, e);
-                setError(`「${name}」の天気情報の取得に失敗しました。`);
+            } catch (e: any) {
+                console.error(`Failed to fetch weather for ${location}`, e);
+                setError(e.message || `「${location}」の天気情報の取得に失敗しました。`);
             } finally {
                 setIsLoading(false);
             }
         };
 
-        fetchWeatherByName(settings.weatherPrefecture);
-    }, [settings.weatherPrefecture, handleApiCall]);
+        fetchWeather(settings.weatherLocation, settings.openWeatherApiKey);
+    }, [settings.weatherLocation, settings.openWeatherApiKey]);
     
-    const getWbgtColor = (wbgt: number) => {
-      if (wbgt >= 31) return { bg: 'bg-red-600', text: 'text-white', label: '危険' };
-      if (wbgt >= 28) return { bg: 'bg-orange-500', text: 'text-white', label: '厳重警戒' };
-      if (wbgt >= 25) return { bg: 'bg-yellow-400', text: 'text-gray-800', label: '警戒' };
-      if (wbgt >= 21) return { bg: 'bg-green-500', text: 'text-white', label: '注意' };
-      return { bg: 'bg-blue-500', text: 'text-white', label: 'ほぼ安全' };
+    const getDayStyling = (dateString: string): { color: string; label: string } => {
+        const date = parseDateString(dateString);
+        const dayOfWeek = date.getDay();
+        const dayLabel = ['日', '月', '火', '水', '木', '金', '土'][dayOfWeek];
+
+        if (JP_HOLIDAYS[dateString]) return { color: 'text-pink-600 font-bold', label: dayLabel };
+        if (dayOfWeek === 0) return { color: 'text-red-500', label: dayLabel };
+        if (dayOfWeek === 6) return { color: 'text-blue-500', label: dayLabel };
+        return { color: 'text-gray-700 dark:text-gray-300', label: dayLabel };
     };
-    
-    const loadingMessage = `「${settings.weatherPrefecture}」の天気を読み込み中...`;
+
+    const loadingMessage = `「${settings.weatherLocation}」の天気を読み込み中...`;
 
     return (
         <div className="p-4 space-y-4">
@@ -2817,49 +2694,126 @@ const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleAp
             {weather && (
               <div className="space-y-4 fade-in">
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
-                    <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{weather.location}</p>
-                    <p className="text-gray-600 dark:text-gray-300">{weather.current.weather}</p>
-                    <div className="flex items-center justify-center gap-4 my-4">
-                        <div className="w-20 h-20">
-                           {getWeatherIllustration(weather.current.weather, "w-full h-full")}
-                        </div>
-                        <div className="text-center">
-                            <p className="text-6xl font-bold text-gray-800 dark:text-gray-200">{Math.round(weather.current.temperature)}°C</p>
-                            <p className="text-gray-600 dark:text-gray-300">湿度: {weather.current.humidity}%</p>
+                    <p className="font-bold text-lg text-gray-800 dark:text-gray-200 text-center">{weather.location}</p>
+                    <div className="flex items-center justify-around my-2">
+                        <div className="w-20 h-20">{getWeatherIllustration(weather.current.weather)}</div>
+                        <p className="text-5xl font-bold text-gray-800 dark:text-gray-200">{Math.round(weather.current.temperature)}<span className="text-2xl align-top">°C</span></p>
+                        <div className="text-sm text-left">
+                            <p className="text-gray-600 dark:text-gray-300">{weather.current.weather}</p>
+                            <p className="text-gray-500 dark:text-gray-400">湿度: {weather.current.humidity}%</p>
                         </div>
                     </div>
-                    
-                    {weather.current.wbgt != null && (() => {
-                        const wbgtStyle = getWbgtColor(weather.current.wbgt!);
-                        return (
-                            <div className={`${wbgtStyle.bg} ${wbgtStyle.text} p-3 rounded-lg text-center`}>
-                                <p className="font-bold">暑さ指数 (WBGT): {weather.current.wbgt!.toFixed(1)}°C</p>
-                                <p className="text-sm font-semibold">{wbgtStyle.label}</p>
-                            </div>
-                        );
-                    })()}
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
+                    <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-3 text-center">今日・明日の天気</h3>
+                    <div className="grid grid-cols-2 divide-x dark:divide-gray-700">
+                        {weather.weekly.slice(0, 2).map((day, index) => {
+                             const dayStyle = getDayStyling(day.date);
+                             return (
+                                 <div key={index} className="px-2 text-center space-y-1">
+                                    <p className="font-semibold text-gray-700 dark:text-gray-300">
+                                        {index === 0 ? '今日' : '明日'}
+                                        <span className={`ml-2 ${dayStyle.color}`}>
+                                            {day.date.substring(5).replace('-', '/')} ({dayStyle.label})
+                                        </span>
+                                    </p>
+                                    <div className="w-16 h-16 mx-auto">{getWeatherIllustration(day.weather)}</div>
+                                    <p className="text-lg">
+                                        <span className="font-bold text-red-500">{Math.round(day.temp_max)}°</span> / <span className="font-bold text-blue-500">{Math.round(day.temp_min)}°</span>
+                                    </p>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
 
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
                     <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-2">3時間ごとの予報</h3>
-                    <WeatherChart hourlyData={weather.hourly} startDate={weather.weekly[0].date} />
+                    <div className="overflow-x-auto -mx-4 px-4 pb-2">
+                        {(() => {
+                            const hourlyData = weather.hourly.slice(0, 16);
+                            if (hourlyData.length === 0) return null;
+                            const temps = hourlyData.map(h => h.temperature);
+                            const maxTemp = Math.ceil(Math.max(...temps));
+                            const minTemp = Math.floor(Math.min(...temps));
+                            const tempRange = maxTemp - minTemp || 1;
+                            const chartHeight = 50;
+                            const blockWidth = 64;
+                            const chartWidth = hourlyData.length * blockWidth;
+
+                            const points = hourlyData.map((hour, i) => {
+                                const y = 5 + chartHeight - (((hour.temperature - minTemp) / tempRange) * chartHeight);
+                                const x = i * blockWidth + blockWidth / 2;
+                                return {x, y, temp: Math.round(hour.temperature)};
+                            });
+                            
+                            const pathData = points.map((p, i) => (i === 0 ? 'M' : 'L') + `${p.x} ${p.y}`).join(' ');
+
+                            return (
+                                <div>
+                                    <div className="relative" style={{ width: chartWidth, height: chartHeight + 25 }}>
+                                        <svg width={chartWidth} height={chartHeight + 25} className="absolute top-0 left-0">
+                                            <path d={pathData} fill="none" stroke="#f97316" strokeWidth="2" />
+                                            {points.map((p, i) => (
+                                                <g key={i}>
+                                                    <circle cx={p.x} cy={p.y} r="3" fill="#f97316" />
+                                                    <text x={p.x} y={p.y - 8} textAnchor="middle" fill="currentColor" className="text-xs font-semibold text-gray-700 dark:text-gray-300">{p.temp}°</text>
+                                                </g>
+                                            ))}
+                                        </svg>
+                                    </div>
+                                    <div className="flex" style={{ width: chartWidth }}>
+                                       {(() => {
+                                            let lastDate: string | null = null;
+                                            return hourlyData.map((hour, i) => {
+                                                const showDate = hour.date !== lastDate;
+                                                lastDate = hour.date;
+                                                const dateObj = parseDateString(hour.date);
+                                                const dayStyle = getDayStyling(hour.date);
+                                                
+                                                return (
+                                                    <div key={i} className="flex-shrink-0 w-16 text-center space-y-1 relative pt-6">
+                                                        {showDate && (
+                                                            <div className="absolute -top-1 left-0 w-full text-center">
+                                                                <p className={`text-xs font-bold ${dayStyle.color}`}>{`${dateObj.getMonth()+1}/${dateObj.getDate()}`}</p>
+                                                            </div>
+                                                        )}
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 h-4"></p>
+                                                        <p className="font-semibold text-sm">{hour.time}</p>
+                                                        <div className="w-10 h-10 mx-auto">{getWeatherIllustration(hour.weather)}</div>
+                                                        <p className="text-xs h-4 overflow-hidden text-ellipsis">{hour.weather}</p>
+                                                        <p className="text-xs text-blue-500">{hour.humidity}%</p>
+                                                    </div>
+                                                );
+                                            });
+                                       })()}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </div>
                 </div>
 
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
                     <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-2">週間予報</h3>
                     <div className="space-y-1">
-                        {weather.weekly.map((day, index) => (
-                            <div key={index} className="grid grid-cols-4 items-center text-sm p-1 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 gap-2">
-                                <p className="font-semibold">{`${day.date.substring(5).replace('-', '/')}(${day.day.charAt(0)})`}</p>
-                                <div className="flex items-center gap-2">
-                                  <div className="w-7 h-7">{getWeatherIllustration(day.weather, "w-full h-full")}</div>
+                        {weather.weekly.slice(0, 5).map((day, index) => {
+                            const dayStyle = getDayStyling(day.date);
+                            return (
+                                <div key={index} className="grid grid-cols-6 items-center text-sm p-1 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 gap-2">
+                                    <p className={`font-semibold col-span-2 ${dayStyle.color}`}>{`${day.date.substring(5).replace('-', '/')}(${dayStyle.label})`}</p>
+                                    <div className="flex items-center justify-center">
+                                      <div className="w-8 h-8">{getWeatherIllustration(day.weather)}</div>
+                                    </div>
+                                    <p className="text-xs text-center text-gray-600 dark:text-gray-300">{day.weather}</p>
+                                    <p className="text-right text-sm">
+                                        <span className="font-bold text-red-500">{Math.round(day.temp_max)}°</span> / <span className="font-bold text-blue-500">{Math.round(day.temp_min)}°</span>
+                                    </p>
+                                    <p className="text-right font-semibold text-cyan-600 dark:text-cyan-400">{Math.round(day.pop * 100)}%</p>
                                 </div>
-                                <p className="text-center text-gray-600 dark:text-gray-300">{day.weather}</p>
-                                <p className="text-right">
-                                    <span className="font-bold text-red-500">{Math.round(day.temp_max)}°</span> / <span className="text-blue-500">{Math.round(day.temp_min)}°</span>
-                                </p>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
               </div>
@@ -2868,12 +2822,19 @@ const WeatherPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleAp
     );
 };
 
-const PlantDiagnosisPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleApiCall, records }) => {
+const PlantDiagnosisPage: React.FC<PageProps> = ({ settings, onSettingsChange, handleApiCall, records, pageParams }) => {
   const [image, setImage] = useState<{ file: File, preview: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<PlantDiagnosis | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  
+  useEffect(() => {
+    if (pageParams?.preselectedImage) {
+      setImage(pageParams.preselectedImage);
+    }
+  }, [pageParams?.preselectedImage]);
+
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -3038,10 +2999,13 @@ const SettingsPage: React.FC<{
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">天気予報エリア</label>
-            <select value={localSettings.weatherPrefecture} onChange={e => handleSettingsChange({ weatherPrefecture: e.target.value })} className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg bg-white">
-              {PREFECTURES.map(pref => <option key={pref} value={pref}>{pref}</option>)}
-            </select>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">天気予報エリア (例: Tokyo,JP)</label>
+            <input type="text" value={localSettings.weatherLocation} onChange={e => handleSettingsChange({ weatherLocation: e.target.value })} className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">OpenWeatherMap APIキー</label>
+            <input type="password" value={localSettings.openWeatherApiKey} onChange={e => handleSettingsChange({ openWeatherApiKey: e.target.value })} className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg" placeholder="APIキーを入力" />
+            <p className="text-xs text-gray-500 mt-1">OpenWeatherMapから無料でAPIキーを取得できます。</p>
           </div>
         </div>
       </div>
@@ -3068,21 +3032,13 @@ const SettingsPage: React.FC<{
             <div className="mt-2 flex rounded-lg shadow-sm">
               <button
                 onClick={() => handleSettingsChange({ darkModeContrast: 'normal' })}
-                className={`flex-1 px-4 py-2 text-sm font-medium rounded-l-lg transition-colors ${
-                  localSettings.darkModeContrast === 'normal'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600'
-                }`}
+                className={`flex-1 px-4 py-2 text-sm rounded-l-lg ${localSettings.darkModeContrast === 'normal' ? 'bg-green-600 text-white' : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600'}`}
               >
-                標準
+                通常
               </button>
               <button
                 onClick={() => handleSettingsChange({ darkModeContrast: 'high' })}
-                className={`flex-1 px-4 py-2 text-sm font-medium rounded-r-lg transition-colors ${
-                  localSettings.darkModeContrast === 'high'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600'
-                }`}
+                className={`flex-1 px-4 py-2 text-sm rounded-r-lg ${localSettings.darkModeContrast === 'high' ? 'bg-green-600 text-white' : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600'}`}
               >
                 ハイコントラスト
               </button>
@@ -3090,690 +3046,560 @@ const SettingsPage: React.FC<{
           </div>
         </div>
       </div>
-      
+
       <div className="space-y-2">
-        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">ローカルデータ管理</h3>
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow space-y-4">
-          <p className="text-sm text-gray-600 dark:text-gray-300">デバイスに保存されている栽培記録をCSVファイルとしてインポート／エクスポートします。</p>
-          <div className="flex gap-4">
-            <button onClick={onExport} className="flex-1 inline-flex items-center justify-center gap-2 bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 font-semibold py-3 px-4 rounded-lg hover:bg-green-200 dark:hover:bg-green-800/50 transition-colors">
-              <ExportIcon className="h-5 w-5"/>
-              <span>エクスポート (CSV)</span>
-            </button>
-            <button onClick={() => importInputRef.current?.click()} className="flex-1 inline-flex items-center justify-center gap-2 bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 font-semibold py-3 px-4 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors">
-              <FileImportIcon className="h-5 w-5"/>
-              <span>インポート (CSV)</span>
-            </button>
-            <input
-              type="file"
-              ref={importInputRef}
-              onChange={onImport}
-              className="hidden"
-              accept=".csv"
-            />
-          </div>
+        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">データ管理</h3>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow space-y-3">
+          <input type="file" accept=".json" ref={importInputRef} onChange={onImport} className="hidden" />
+          <button onClick={() => importInputRef.current?.click()} className="w-full flex items-center justify-center gap-2 bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 font-bold py-2.5 px-4 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors">
+            <FileImportIcon className="h-5 w-5"/>
+            <span>記録をインポート</span>
+          </button>
+          <button onClick={onExport} className="w-full flex items-center justify-center gap-2 bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 font-bold py-2.5 px-4 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors">
+            <ExportIcon className="h-5 w-5"/>
+            <span>すべての記録をエクスポート</span>
+          </button>
         </div>
       </div>
-
-       <div className="space-y-2">
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow space-y-4">
-              <button onClick={onLogout} className="w-full bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 font-bold py-3 px-4 rounded-lg hover:bg-red-200 dark:hover:bg-red-800/50 transition-colors flex items-center justify-center gap-2">
-                  <LogoutIcon className="h-5 w-5"/>
-                  <span>ログアウト</span>
-              </button>
-          </div>
-       </div>
+      
+      <div className="pt-4">
+         <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 font-bold py-2.5 px-4 rounded-lg hover:bg-red-200 dark:hover:bg-red-800/50 transition-colors">
+            <LogoutIcon className="h-5 w-5"/>
+            <span>ログアウト</span>
+          </button>
+      </div>
     </div>
   );
 };
+
+const CameraActionModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: () => void;
+  onDiagnose: () => void;
+}> = ({ isOpen, onClose, onSave, onDiagnose }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-xs" onClick={e => e.stopPropagation()}>
+        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 text-center mb-4">カメラを起動</h3>
+        <div className="flex justify-around gap-4">
+          <button onClick={onSave} className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors w-1/2">
+            <SaveIcon className="h-8 w-8 text-gray-700 dark:text-gray-300" />
+            <span className="font-semibold text-gray-700 dark:text-gray-300">写真を保存</span>
+          </button>
+          <button onClick={onDiagnose} className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors w-1/2">
+            <ObservationIcon className="h-8 w-8 text-gray-700 dark:text-gray-300" />
+            <span className="font-semibold text-gray-700 dark:text-gray-300">写真から診断</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 // #endregion
 
 // #region --- Main App Component ---
 
-const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [page, setPage] = useState('DASHBOARD');
-  const [pageParams, setPageParams] = useState<any>(null);
+export const App = () => {
+  const [page, setPage] = useState<'LOGIN' | 'DASHBOARD' | 'RECORD' | 'HISTORY' | 'TOOLS' | 'CALCULATOR' | 'RECIPE_SEARCH' | 'VEGETABLE_SEARCH' | 'PEST_SEARCH' | 'TERM_SEARCH' | 'WEATHER' | 'PLANT_DIAGNOSIS' | 'SETTINGS'>('LOGIN');
+  const [pageParams, setPageParams] = useState<any>({});
   const [records, setRecords] = useState<CultivationRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
-  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
-  const [confirmationModal, setConfirmationModal] = useState<Omit<ConfirmationModalProps, 'isOpen' | 'onCancel'>>({ title: '', message: '', confirmText: '', onConfirm: () => {} });
-  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
-  const [apiError, setApiError] = useState<any>(null);
-  const [isApiErrorModalOpen, setIsApiErrorModalOpen] = useState(false);
-  const lastApiCallRef = useRef<(() => Promise<any>) | null>(null);
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [exportModalMode, setExportModalMode] = useState<'email' | 'download'>('download');
-  const [toastMessage, setToastMessage] = useState('');
-  const [isCameraActionModalOpen, setIsCameraActionModalOpen] = useState(false);
-
   const [settings, setSettings] = useState<AppSettings>({
-    teamName: 'ベジログチーム',
+    teamName: 'マイチーム',
     startOfWeek: 'monday',
     enableAiFeatures: true,
-    enablePumiceWash: true,
-    weatherPrefecture: '愛知県',
+    enablePumiceWash: false,
+    weatherLocation: 'nagoya,JP',
     darkModeContrast: 'normal',
+    openWeatherApiKey: ''
   });
-
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('DASHBOARD');
+  const [formIsDirty, setFormIsDirty] = useState(false);
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [confirmationModal, setConfirmationModal] = useState<Omit<ConfirmationModalProps, 'isOpen'> & { isOpen: boolean }>({ isOpen: false, title: '', message: '', onConfirm: () => {}, onCancel: () => {}, confirmText: '' });
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [exportModal, setExportModal] = useState<{isOpen: boolean, mode: 'email' | 'download'}>({isOpen: false, mode: 'download'});
+  const [apiError, setApiError] = useState<any>(null);
+  const [lastApiCall, setLastApiCall] = useState<(() => Promise<any>) | null>(null);
   const recordPageRef = useRef<RecordPageHandle>(null);
-  const navigationTargetRef = useRef<{ page: string; params: any } | null>(null);
-  const nativeCameraInputRef = useRef<HTMLInputElement>(null);
+  const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
+  const cameraSaveRef = useRef<HTMLInputElement>(null);
+  const cameraDiagnoseRef = useRef<HTMLInputElement>(null);
   
-  // Load data from localStorage on initial mount
+  const goBackActionRef = useRef<(() => void) | null>(null);
+
+  // Load data from localStorage on initial render
   useEffect(() => {
     try {
-      const storedRecords = localStorage.getItem('veggieLogRecords');
-      if (storedRecords) {
-        setRecords(JSON.parse(storedRecords));
-      }
-      const storedSettings = localStorage.getItem(SETTINGS_KEY);
-      if (storedSettings) {
-        setSettings(prev => ({ ...prev, ...JSON.parse(storedSettings) }));
-      }
+      const savedRecords = localStorage.getItem('cultivationRecords');
+      if (savedRecords) setRecords(JSON.parse(savedRecords));
+
+      const savedSettings = localStorage.getItem(SETTINGS_KEY);
+      if (savedSettings) setSettings(prev => ({ ...prev, ...JSON.parse(savedSettings) }));
     } catch (error) {
       console.error("Failed to load data from localStorage", error);
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 
-  // Save data to localStorage whenever it changes
+  // Save records to localStorage whenever they change
   useEffect(() => {
-    if (!isLoading) {
-      try {
-        localStorage.setItem('veggieLogRecords', JSON.stringify(records));
-      } catch (error) {
-        console.error("Failed to save records to localStorage", error);
-      }
+    try {
+      localStorage.setItem('cultivationRecords', JSON.stringify(records));
+    } catch (error) {
+      console.error("Failed to save records to localStorage", error);
+      alert("記録の保存に失敗しました。ストレージの空き容量が不足している可能性があります。");
     }
-  }, [records, isLoading]);
+  }, [records]);
 
-  useEffect(() => {
-    if (!isLoading) {
-      try {
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-      } catch (error) {
+  // Save settings to localStorage whenever they change
+  const handleSettingsChange = useCallback((newSettings: AppSettings) => {
+    setSettings(newSettings);
+    try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
+    } catch (error) {
         console.error("Failed to save settings to localStorage", error);
-      }
     }
-  }, [settings, isLoading]);
+  }, []);
   
-  // Handle dark mode contrast setting
   useEffect(() => {
+    const isHighContrast = settings.darkModeContrast === 'high';
     const root = document.documentElement;
-    if (settings.darkModeContrast === 'high') {
-      root.classList.add('dark-high-contrast');
-    } else {
-      root.classList.remove('dark-high-contrast');
-    }
+    root.classList.toggle('dark-high-contrast', isHighContrast);
   }, [settings.darkModeContrast]);
 
-  const showToast = (message: string, duration: number = 2000) => {
+  const showToast = (message: string) => {
     setToastMessage(message);
-    setTimeout(() => setToastMessage(''), duration);
+    setTimeout(() => setToastMessage(null), 1500);
   };
 
-  const handleApiCall = useCallback(async <T,>(apiCall: () => Promise<T>): Promise<T | undefined> => {
-    lastApiCallRef.current = apiCall as () => Promise<any>;
-    try {
-      if (!settings.enableAiFeatures) {
-        console.log("AI features disabled. API call skipped.");
-        return undefined;
+  const handleSaveRecord = (record: CultivationRecord) => {
+    setRecords(prev => {
+      const existingIndex = prev.findIndex(r => r.id === record.id);
+      if (existingIndex > -1) {
+        const newRecords = [...prev];
+        newRecords[existingIndex] = record;
+        return newRecords;
       }
+      return [...prev, record];
+    });
+    setPage('DASHBOARD');
+    showToast('記録を保存しました！');
+  };
+
+  const handleDeleteRecord = (recordId: string) => {
+    setConfirmationModal({
+        isOpen: true,
+        title: '記録の削除',
+        message: 'この記録を本当に削除しますか？\nこの操作は元に戻せません。',
+        confirmText: 'はい、削除する',
+        onConfirm: () => {
+            setRecords(prev => prev.filter(r => r.id !== recordId));
+            setConfirmationModal(s => ({...s, isOpen: false}));
+            setPage('DASHBOARD');
+            showToast('記録を削除しました');
+        },
+        onCancel: () => setConfirmationModal(s => ({...s, isOpen: false})),
+    });
+  };
+  
+  const handleClearFutureRecords = (lane: string, date: string) => {
+      const startDate = parseDateString(date);
+      startDate.setHours(0, 0, 0, 0);
+
+      setRecords(prev => prev.filter(r => {
+          const rDate = parseDateString(r.date);
+          return !(r.cultivationLane === lane && rDate >= startDate);
+      }));
+  };
+
+  const handleApiCall: ApiCallHandler = useCallback(async (apiCall) => {
+    if (!settings.enableAiFeatures) {
+        console.log("AI features are disabled.");
+        return undefined;
+    }
+    setLastApiCall(() => apiCall);
+    try {
+      setApiError(null);
       const result = await apiCall();
       return result;
     } catch (error: any) {
-      console.error("API Error caught by handler:", error);
-      if (error instanceof ApiRateLimitError) {
-          alert(error.message); // Show quota message immediately
-          return undefined; // Stop execution
-      }
-      setApiError(error);
-      setIsApiErrorModalOpen(true);
-      throw error; // Re-throw to be caught by specific callers if needed
+        console.error("API Call failed:", error);
+        if (error instanceof ApiRateLimitError) {
+          setApiError(error);
+        } else {
+          // General errors can be handled here, e.g., show a toast
+          alert(`エラーが発生しました: ${error.message}`);
+        }
+        return undefined;
     }
   }, [settings.enableAiFeatures]);
 
-
-  const handleSaveRecord = (record: CultivationRecord) => {
-    const index = records.findIndex(r => r.id === record.id);
-    if (index > -1) {
-      const newRecords = [...records];
-      newRecords[index] = record;
-      setRecords(newRecords);
-    } else {
-      setRecords([...records, record]);
-    }
-    setPage('DASHBOARD');
-    setPageParams(null);
-    setIsDirty(false);
-  };
-
-  const handleClearFutureRecords = (lane: string, date: string) => {
-    const startDate = parseDateString(date);
-    startDate.setHours(0, 0, 0, 0);
-
-    const recordsToKeep = records.filter(record => {
-        const recordDate = parseDateString(record.date);
-        return !(record.cultivationLane === lane && recordDate >= startDate);
-    });
-    setRecords(recordsToKeep);
-  };
-  
-  const handleDirtyChange = useCallback((dirty: boolean) => {
-    setIsDirty(dirty);
-  }, []);
-  
-  const handleNavigate = (newPage: string, params?: any) => {
-    if (isDirty) {
-      navigationTargetRef.current = { page: newPage, params };
-      setShowSaveConfirm(true);
-    } else {
-      setPage(newPage);
-      setPageParams(params);
-      window.scrollTo(0, 0);
+  const retryApiCall = () => {
+    if (lastApiCall) {
+      handleApiCall(lastApiCall);
     }
   };
 
-  const handleSaveConfirm = () => {
-    if (recordPageRef.current) {
-        const error = recordPageRef.current.validate();
-        if (error) {
-            showToast(error);
-            return;
+  const stopAiFeatures = () => {
+    handleSettingsChange({ ...settings, enableAiFeatures: false });
+    setApiError(null);
+  };
+  
+  const handleDirtyStateBack = (action: () => void) => {
+    if (page === 'RECORD' && formIsDirty) {
+      goBackActionRef.current = action;
+      setSaveModalOpen(true);
+    } else {
+      action();
+    }
+  };
+
+  const changePage = (newPage: string, params?: any) => {
+    const action = () => {
+        setPage(newPage as any);
+        if (params) setPageParams(params);
+        setActiveTab(newPage);
+        setFormIsDirty(false);
+    };
+    handleDirtyStateBack(action);
+  };
+
+  const onBack = () => {
+    let targetPage = 'DASHBOARD';
+    if (['CALCULATOR', 'RECIPE_SEARCH', 'VEGETABLE_SEARCH', 'PEST_SEARCH', 'TERM_SEARCH', 'WEATHER', 'PLANT_DIAGNOSIS'].includes(page)) {
+      targetPage = 'TOOLS';
+    }
+    changePage(targetPage);
+  };
+
+  const handleLogin = () => {
+    setIsLoggedIn(true);
+    changePage('DASHBOARD');
+  };
+  
+  const handleLogout = () => {
+      setConfirmationModal({
+          isOpen: true,
+          title: 'ログアウト',
+          message: '本当にログアウトしますか？',
+          confirmText: 'ログアウト',
+          onConfirm: () => {
+              setIsLoggedIn(false);
+              setPage('LOGIN');
+              setConfirmationModal(s => ({...s, isOpen: false}));
+          },
+          onCancel: () => setConfirmationModal(s => ({...s, isOpen: false})),
+      });
+  };
+  
+  const onSaveConfirm = () => {
+    recordPageRef.current?.handleSubmit();
+    setSaveModalOpen(false);
+    if(goBackActionRef.current) {
+        goBackActionRef.current();
+        goBackActionRef.current = null;
+    }
+  };
+
+  const onSaveDeny = () => {
+    setSaveModalOpen(false);
+    if(goBackActionRef.current) {
+        goBackActionRef.current();
+        goBackActionRef.current = null;
+    }
+    setFormIsDirty(false);
+  };
+
+  const handleExport = (range: string, customStart?: string, customEnd?: string) => {
+    let recordsToExport = records;
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    switch(range) {
+        case 'today':
+            recordsToExport = records.filter(r => r.date === toISODateString(today));
+            break;
+        case 'thisWeek': {
+            const weekStart = new Date(today);
+            const dayOfWeek = weekStart.getDay();
+            const diff = settings.startOfWeek === 'monday' 
+                ? (dayOfWeek === 0 ? -6 : 1 - dayOfWeek)
+                : -dayOfWeek;
+            weekStart.setDate(weekStart.getDate() + diff);
+            recordsToExport = records.filter(r => parseDateString(r.date) >= weekStart);
+            break;
         }
-        recordPageRef.current.handleSubmit();
+        case 'thisMonth': {
+            const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+            recordsToExport = records.filter(r => parseDateString(r.date) >= monthStart);
+            break;
+        }
+        case 'lastMonth': {
+            const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+            const lastMonthStart = new Date(lastMonthEnd.getFullYear(), lastMonthEnd.getMonth(), 1);
+            recordsToExport = records.filter(r => {
+                const d = parseDateString(r.date);
+                return d >= lastMonthStart && d <= lastMonthEnd;
+            });
+            break;
+        }
+        case 'custom': {
+             if(customStart && customEnd) {
+                const start = parseDateString(customStart);
+                const end = parseDateString(customEnd);
+                recordsToExport = records.filter(r => {
+                    const d = parseDateString(r.date);
+                    return d >= start && d <= end;
+                });
+            }
+            break;
+        }
+        case 'all':
+        default:
+             // Use all records
+            break;
     }
-    setShowSaveConfirm(false);
-    if (navigationTargetRef.current) {
-      setPage(navigationTargetRef.current.page);
-      setPageParams(navigationTargetRef.current.params);
-      window.scrollTo(0, 0);
-      navigationTargetRef.current = null;
-    }
-  };
-
-  const handleSaveDeny = () => {
-    setShowSaveConfirm(false);
-    setIsDirty(false);
-    if (navigationTargetRef.current) {
-      setPage(navigationTargetRef.current.page);
-      setPageParams(navigationTargetRef.current.params);
-      window.scrollTo(0, 0);
-      navigationTargetRef.current = null;
-    }
-  };
-
-  const handleConfirmationRequest = (config: Omit<ConfirmationModalProps, 'isOpen' | 'onCancel'>) => {
-    const originalOnConfirm = config.onConfirm;
-    setConfirmationModal({
-      ...config,
-      onConfirm: () => {
-        originalOnConfirm();
-        setIsConfirmationOpen(false); // Close modal after action
-      }
-    });
-    setIsConfirmationOpen(true);
-  };
-  
-  const handleApiErrorRetry = async () => {
-    setIsApiErrorModalOpen(false);
-    if (lastApiCallRef.current) {
-      try {
-        await lastApiCallRef.current(); // The handler will re-throw on new failure
-      } catch (e) {
-        // Error is already handled by handleApiCall, which will re-open the modal
-      }
-    }
-  };
-  
-  const handleApiErrorStop = () => {
-    setIsApiErrorModalOpen(false);
-    setSettings(s => ({ ...s, enableAiFeatures: false }));
-    lastApiCallRef.current = null;
-  };
-  
-  const handleEmailClick = () => {
-    setExportModalMode('email');
-    setIsExportModalOpen(true);
-  };
-
-  const handleExportRecords = (range: string, startDateStr?: string, endDateStr?: string) => {
-      let filteredRecords = records;
-      
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      switch(range) {
-          case 'today':
-              filteredRecords = records.filter(r => r.date === toISODateString(today));
-              break;
-          case 'thisWeek': {
-              const weekStart = new Date(today);
-              const dayOfWeek = weekStart.getDay(); // 0 = Sunday
-              const diff = weekStart.getDate() - dayOfWeek + (settings.startOfWeek === 'monday' ? (dayOfWeek === 0 ? -6 : 1) : 0);
-              weekStart.setDate(diff);
-              filteredRecords = records.filter(r => parseDateString(r.date) >= weekStart);
-              break;
-          }
-          case 'thisMonth': {
-              const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-              filteredRecords = records.filter(r => parseDateString(r.date) >= monthStart);
-              break;
-          }
-          case 'lastMonth': {
-              const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
-              const lastMonthStart = new Date(lastMonthEnd.getFullYear(), lastMonthEnd.getMonth(), 1);
-              filteredRecords = records.filter(r => {
-                  const d = parseDateString(r.date);
-                  return d >= lastMonthStart && d <= lastMonthEnd;
-              });
-              break;
-          }
-          case 'custom': {
-              if (startDateStr && endDateStr) {
-                  const startDate = parseDateString(startDateStr);
-                  const endDate = parseDateString(endDateStr);
-                  endDate.setHours(23, 59, 59, 999);
-                  filteredRecords = records.filter(r => {
-                      const d = parseDateString(r.date);
-                      return d >= startDate && d <= endDate;
-                  });
-              }
-              break;
-          }
-          case 'all':
-          default:
-              filteredRecords = records;
-              break;
-      }
-      
-      if (filteredRecords.length === 0) {
-        alert("選択された期間にエクスポート対象の記録がありません。");
+    
+    if (recordsToExport.length === 0) {
+        alert("エクスポート対象の記録がありません。");
         return;
-      }
+    }
 
-      const csvData = exportRecordsToCsv(filteredRecords);
-      const blob = new Blob([`\uFEFF${csvData}`], { type: 'text/csv;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      const timestamp = new Date().toISOString().slice(0,10).replace(/-/g, '');
-      link.setAttribute('download', `veggielog_${timestamp}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      setIsExportModalOpen(false);
+    const sortedRecords = [...recordsToExport].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + encodeURIComponent(exportRecordsToCsv(sortedRecords));
+    const link = document.createElement("a");
+    link.setAttribute("href", csvContent);
+    const fileName = `veggielog_export_${toISODateString(new Date())}.csv`;
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    if (exportModal.mode === 'email') {
+        const subject = encodeURIComponent(`${settings.teamName} 栽培記録 (${range})`);
+        const body = encodeURIComponent(`
+${settings.teamName}の栽培記録を添付します。
 
-      if (exportModalMode === 'email') {
-          setTimeout(() => {
-              const subject = `【ベジログ】栽培記録のエクスポート (${new Date().toLocaleDateString()})`;
-              const body = `チームの皆様\n\nベジログからの栽培記録を添付します。\nダウンロードしたCSVファイルをご確認ください。\n\n---\n${settings.teamName}\nベジログ・栽培記録アプリ`;
-              window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-          }, 500);
-      }
+期間: ${range} ${customStart ? `${customStart} ~ ${customEnd}`: ''}
+ファイル名: ${fileName}
+
+ご確認よろしくお願いいたします。
+        `);
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    }
+    
+    setExportModal({isOpen: false, mode: 'download'});
   };
 
-  const handleOpenExportModal = () => {
-    setExportModalMode('download');
-    setIsExportModalOpen(true);
-  };
-  
-   const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      try {
-        const text = e.target?.result as string;
-        if (!text) throw new Error("ファイルが空です。");
+        try {
+            const importedRecords: CultivationRecord[] = JSON.parse(e.target?.result as string);
+            // Basic validation
+            if (!Array.isArray(importedRecords) || (importedRecords.length > 0 && !importedRecords[0].id)) {
+                throw new Error("Invalid file format");
+            }
 
-        const workTypeMap = Object.fromEntries(Object.entries(WORK_TYPE_DETAILS).map(([key, { label }]) => [label.trim(), key as WorkType]));
-        const cropStageMap = Object.fromEntries(Object.entries(CROP_STAGE_DETAILS).map(([key, { label }]) => [label.trim(), key as CropStage]));
-        const observationStatusMap = Object.fromEntries(Object.entries(OBSERVATION_STATUS_DETAILS).map(([key, { label }]) => [label.trim(), key as ObservationStatus]));
+            setConfirmationModal({
+                isOpen: true,
+                title: '記録のインポート',
+                message: `${importedRecords.length}件の記録をインポートしますか？\n既存の記録とIDが重複する場合、上書きされます。`,
+                confirmText: 'インポート',
+                confirmColor: 'bg-blue-600 hover:bg-blue-700',
+                onConfirm: () => {
+                    setRecords(prev => {
+                        const recordsMap = new Map(prev.map(r => [r.id, r]));
+                        importedRecords.forEach(r => recordsMap.set(r.id, r));
+                        return Array.from(recordsMap.values());
+                    });
+                    showToast(`${importedRecords.length}件の記録をインポートしました。`);
+                    setConfirmationModal(s => ({...s, isOpen: false}));
+                },
+                onCancel: () => setConfirmationModal(s => ({...s, isOpen: false})),
+            });
 
-        const lines = text.trim().split('\n');
-        const headerLine = lines.shift()?.trim() || '';
-        if (!headerLine) throw new Error("CSVヘッダーが見つかりません。");
-
-        const headers = headerLine.split(',').map(h => h.replace(/"/g, '').trim());
-        const headerMap = headers.reduce((acc, h, i) => ({ ...acc, [h]: i }), {} as Record<string, number>);
-        
-        const isOldFormat = '施肥種類' in headerMap;
-        const isNewFormat = 'M-plus 1号 倍率' in headerMap;
-
-        const importedRecords: CultivationRecord[] = [];
-
-        for (const line of lines) {
-          if (line.trim() === '') continue;
-          
-          const values = line.slice(1, -1).split('","');
-          if (values.length !== headers.length) {
-              console.warn("Skipping malformed CSV line:", line);
-              continue;
-          }
-          
-          const recordData: any = {
-            id: values[headerMap['ID']],
-            date: values[headerMap['日付']],
-            cropName: values[headerMap['作物名']],
-            cultivationLane: values[headerMap['栽培レーン']],
-            workTypes: values[headerMap['作業種類']] ? values[headerMap['作業種類']].split(',').map(label => workTypeMap[label.trim()]).filter(Boolean) : [],
-            cropStages: values[headerMap['作物の状況']] ? values[headerMap['作物の状況']].split(',').map(label => cropStageMap[label.trim()]).filter(Boolean) : [],
-            observationStatus: values[headerMap['観察記録']] ? values[headerMap['観察記録']].split(',').map(label => observationStatusMap[label.trim()]).filter(Boolean) : [],
-            pestDetails: values[headerMap['病害虫詳細']] ? values[headerMap['病害虫詳細']].split(',').map(s => s.trim()).filter(Boolean) : [],
-            memo: values[headerMap['メモ']]?.replace(/""/g, '"') || '',
-            photoBase64: '',
-          };
-
-          const fertilizingDetails: FertilizerDetail[] = [];
-
-          if (isOldFormat) {
-              const fertilizerType = values[headerMap['施肥種類']] as 'M-Plus-1' | 'M-Plus-2';
-              const dilution = parseInt(values[headerMap['施肥倍率']], 10);
-              if ((fertilizerType === 'M-Plus-1' || fertilizerType === 'M-Plus-2') && !isNaN(dilution)) {
-                  fertilizingDetails.push({ fertilizerType, dilution });
-              }
-          } else if (isNewFormat) {
-              const dilution1 = parseInt(values[headerMap['M-plus 1号 倍率']], 10);
-              if (!isNaN(dilution1) && dilution1 > 0) {
-                  fertilizingDetails.push({ fertilizerType: 'M-Plus-1', dilution: dilution1 });
-              }
-              const dilution2 = parseInt(values[headerMap['M-plus 2号 倍率']], 10);
-              if (!isNaN(dilution2) && dilution2 > 0) {
-                  fertilizingDetails.push({ fertilizerType: 'M-Plus-2', dilution: dilution2 });
-              }
-          }
-
-          if (fertilizingDetails.length > 0) {
-              recordData.fertilizingDetails = fertilizingDetails;
-          }
-
-          importedRecords.push(recordData as CultivationRecord);
+        } catch (err) {
+            alert("ファイルの読み込みに失敗しました。JSON形式が正しくない可能性があります。");
         }
-
-        if (importedRecords.length === 0) throw new Error("CSVから有効な記録を読み込めませんでした。");
-
-        handleConfirmationRequest({
-          title: 'インポートの確認',
-          message: `CSVから ${importedRecords.length} 件の記録をインポートします。\n現在のすべての記録は上書きされます。よろしいですか？`,
-          confirmText: 'はい、インポートする',
-          confirmColor: 'bg-green-600 hover:bg-green-700',
-          onConfirm: () => {
-            setRecords(importedRecords);
-            showToast('インポートが完了しました。', 3000);
-          },
-        });
-
-      } catch (error: any) {
-        alert(`インポートに失敗しました: ${error.message}`);
-      } finally {
-        if (event.target) event.target.value = '';
-      }
     };
     reader.readAsText(file);
+    // Reset file input
+    event.target.value = '';
   };
   
-  const handleLaneSelection = (lane: string) => {
-    const latestRecordForLane = records
-      .filter(r => r.cultivationLane === lane)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-
-    if (latestRecordForLane) {
-      handleNavigate('EDIT_RECORD', { recordId: latestRecordForLane.id, fromDashboard: true });
-    } else {
-      handleNavigate('NEW_RECORD', { lane });
+  const handleDiagnoseFromCamera = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const preselectedImage = { file, preview: URL.createObjectURL(file) };
+      changePage('PLANT_DIAGNOSIS', { preselectedImage });
     }
-  };
-  
-  const handleLogin = () => {
-    setIsAuthenticated(true);
-    setPage('DASHBOARD');
+    if (e.target) e.target.value = '';
   };
 
-  const handleLogout = () => {
-    handleConfirmationRequest({
-      title: 'ログアウト',
-      message: '本当にログアウトしますか？',
-      confirmText: 'ログアウト',
-      onConfirm: () => {
-        setIsAuthenticated(false);
-      }
-    });
-  };
+  // --- Render logic ---
 
-  if (!isAuthenticated) {
+  if (!isLoggedIn) {
     return <LoginPage onLogin={handleLogin} />;
   }
-  
-  const CameraActionModal: React.FC<{
-      isOpen: boolean;
-      onClose: () => void;
-      onTakePhoto: () => void;
-      onDiagnose: () => void;
-    }> = ({ isOpen, onClose, onTakePhoto, onDiagnose }) => {
-      if (!isOpen) return null;
 
-      return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onClick={onClose}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-xs" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 text-center mb-4">カメラを使用</h3>
-            <div className="flex flex-col gap-4">
-              <button onClick={onTakePhoto} className="flex flex-col items-center gap-2 p-4 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors w-full">
-                <CameraIcon className="h-8 w-8 text-gray-700 dark:text-gray-300" />
-                <span className="font-semibold text-gray-700 dark:text-gray-300">写真撮影 (端末へ保存)</span>
-              </button>
-              <button onClick={onDiagnose} className="flex flex-col items-center gap-2 p-4 rounded-lg bg-green-100 hover:bg-green-200 dark:bg-green-900/50 dark:hover:bg-green-800/50 transition-colors w-full">
-                <ObservationIcon className="h-8 w-8 text-green-700 dark:text-green-400" />
-                <span className="font-semibold text-green-700 dark:text-green-300">AI診断</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    };
-
-  const renderPage = () => {
-    const commonProps = { setPage: handleNavigate, settings, onSettingsChange: setSettings, handleApiCall, records };
-    const pageHeaderProps = { onMenuClick: () => setIsMenuOpen(true) };
-    switch (page) {
-      case 'DASHBOARD': return (
-        <>
-          <PageHeader title={settings.teamName} {...pageHeaderProps} />
-          <Dashboard records={records} onLaneClick={handleLaneSelection} {...commonProps} />
-        </>
-      );
-      case 'NEW_RECORD': return (
-        <>
-          <PageHeader title="新規記録" onBack={() => handleNavigate('DASHBOARD')} onMenuClick={() => setIsMenuOpen(true)} />
-          <RecordPage
-            ref={recordPageRef}
-            onSaveRecord={handleSaveRecord}
-            onBack={() => handleNavigate('DASHBOARD')}
-            initialData={{ cultivationLane: pageParams?.lane }}
-            onDirtyChange={handleDirtyChange}
-            onConfirmationRequest={handleConfirmationRequest}
-            onClearFutureRecords={handleClearFutureRecords}
-            onValidationError={showToast}
-            {...commonProps}
-          />
-        </>
-      );
-       case 'EDIT_RECORD': {
-        const recordToEdit = records.find(r => r.id === pageParams.recordId);
-        let initialDataForEdit;
-
-        if (pageParams.fromDashboard && recordToEdit) {
-            // From dashboard: create a new record for today, using the latest record as a template.
-            initialDataForEdit = {
-                // Persistent info from the template record
-                cropName: recordToEdit.cropName,
-                cultivationLane: recordToEdit.cultivationLane,
-                seedPackagePhotoFront: recordToEdit.seedPackagePhotoFront,
-                seedPackagePhotoBack: recordToEdit.seedPackagePhotoBack,
-                aiPackageAnalysis: recordToEdit.aiPackageAnalysis,
-                aiPestInfo: recordToEdit.aiPestInfo,
-                
-                // New info for today's record
-                id: new Date().toISOString(),
-                date: toISODateString(new Date()),
-                workTypes: [],
-                cropStages: [],
-                observationStatus: [],
-                pestDetails: [],
-                memo: '',
-                photoBase64: '',
-                fertilizingDetails: [],
-            };
-        } else {
-            // From calendar: edit the actual selected record.
-            initialDataForEdit = recordToEdit;
-        }
-
-        return (
-          <>
-            <PageHeader title="記録の編集" onBack={() => handleNavigate('DASHBOARD')} onMenuClick={() => setIsMenuOpen(true)}/>
-            <RecordPage
-              ref={recordPageRef}
-              onSaveRecord={handleSaveRecord}
-              onBack={() => handleNavigate('DASHBOARD')}
-              initialData={initialDataForEdit}
-              onDirtyChange={handleDirtyChange}
-              onConfirmationRequest={handleConfirmationRequest}
-              onClearFutureRecords={handleClearFutureRecords}
-              onValidationError={showToast}
-              {...commonProps}
-            />
-          </>
-        );
-      }
-      case 'HISTORY': return (
-        <>
-          <PageHeader title="カレンダー" {...pageHeaderProps} />
-          <CalendarHistoryPage records={records} startOfWeek={settings.startOfWeek} onRecordClick={(record) => handleNavigate('EDIT_RECORD', { recordId: record.id })} />
-        </>
-      );
-      case 'TOOLS': return (
-        <>
-          <PageHeader title="ツール" {...pageHeaderProps} />
-          <ToolsPage setPage={(p) => handleNavigate(p)} />
-        </>
-      );
-      case 'CALCULATOR': return <><PageHeader title="液肥計算機" onBack={() => handleNavigate('TOOLS')} {...pageHeaderProps} /><CalculatorPage {...commonProps} /></>;
-      case 'RECIPE_SEARCH': return <><PageHeader title="レシピ検索" onBack={() => handleNavigate('TOOLS')} {...pageHeaderProps} /><RecipeSearchPage {...commonProps} /></>;
-      case 'VEGETABLE_SEARCH': return <><PageHeader title="野菜の育て方" onBack={() => handleNavigate('TOOLS')} {...pageHeaderProps} /><VegetableSearchPage {...commonProps} /></>;
-      case 'PEST_SEARCH': return <><PageHeader title="病害虫・症状検索" onBack={() => handleNavigate('TOOLS')} {...pageHeaderProps} /><PestSearchPage {...commonProps} /></>;
-      case 'TERM_SEARCH': return <><PageHeader title="園芸用語辞典" onBack={() => handleNavigate('TOOLS')} {...pageHeaderProps} /><TermSearchPage {...commonProps} /></>;
-      case 'WEATHER': return <><PageHeader title="天気予報" onBack={() => handleNavigate('TOOLS')} {...pageHeaderProps} /><WeatherPage {...commonProps} /></>;
-      case 'PLANT_DIAGNOSIS': return <><PageHeader title="AI作物診断" onBack={() => handleNavigate('TOOLS')} {...pageHeaderProps} /><PlantDiagnosisPage {...commonProps} /></>;
-      case 'SETTINGS': return (
-        <>
-          <PageHeader title="設定" {...pageHeaderProps} />
-          <SettingsPage 
-            settings={settings} 
-            onSettingsChange={setSettings} 
-            onLogout={handleLogout} 
-            onExport={handleOpenExportModal} 
-            onImport={handleFileImport}
-          />
-        </>
-      );
-      default: return (
-        <>
-          <PageHeader title="ダッシュボード" {...pageHeaderProps} />
-          <Dashboard records={records} onLaneClick={handleLaneSelection} {...commonProps} />
-        </>
-      );
-    }
+  const pages: { [key: string]: { comp: React.ReactNode, title: string, showBack: boolean } } = {
+    DASHBOARD: {
+      comp: <Dashboard records={records} onLaneClick={(recordData) => changePage('RECORD', recordData)} settings={settings} handleApiCall={handleApiCall} />,
+      title: settings.teamName,
+      showBack: false,
+    },
+    RECORD: {
+      comp: <RecordPage
+        ref={recordPageRef}
+        onSaveRecord={handleSaveRecord}
+        onBack={() => handleDirtyStateBack(onBack)}
+        initialData={pageParams}
+        settings={settings}
+        onSettingsChange={handleSettingsChange}
+        onDirtyChange={setFormIsDirty}
+        onConfirmationRequest={(config) => setConfirmationModal({ ...config, isOpen: true, onCancel: () => setConfirmationModal(s => ({ ...s, isOpen: false})) })}
+        handleApiCall={handleApiCall}
+        records={records}
+        onClearFutureRecords={handleClearFutureRecords}
+        onValidationError={showToast}
+      />,
+      title: pageParams?.id ? '記録の編集' : '新規記録',
+      showBack: true
+    },
+    HISTORY: { comp: <CalendarHistoryPage records={records} startOfWeek={settings.startOfWeek} onRecordClick={(record) => changePage('RECORD', record)} />, title: '栽培カレンダー', showBack: false },
+    TOOLS: { comp: <ToolsPage setPage={changePage} />, title: 'ツール', showBack: false },
+    CALCULATOR: { comp: <CalculatorPage setPage={changePage} onBack={onBack} settings={settings} onSettingsChange={handleSettingsChange} handleApiCall={handleApiCall} records={records} pageParams={pageParams} />, title: '液肥計算機', showBack: true },
+    RECIPE_SEARCH: { comp: <RecipeSearchPage setPage={changePage} onBack={onBack} settings={settings} onSettingsChange={handleSettingsChange} handleApiCall={handleApiCall} records={records} pageParams={pageParams} />, title: 'レシピ検索', showBack: true },
+    VEGETABLE_SEARCH: { comp: <VegetableSearchPage setPage={changePage} onBack={onBack} settings={settings} onSettingsChange={handleSettingsChange} handleApiCall={handleApiCall} records={records} pageParams={pageParams} />, title: '育て方検索', showBack: true },
+    PEST_SEARCH: { comp: <PestSearchPage setPage={changePage} onBack={onBack} settings={settings} onSettingsChange={handleSettingsChange} handleApiCall={handleApiCall} records={records} pageParams={pageParams} />, title: '病害虫検索', showBack: true },
+    TERM_SEARCH: { comp: <TermSearchPage setPage={changePage} onBack={onBack} settings={settings} onSettingsChange={handleSettingsChange} handleApiCall={handleApiCall} records={records} pageParams={pageParams} />, title: '園芸用語辞典', showBack: true },
+    WEATHER: { comp: <WeatherPage setPage={changePage} onBack={onBack} settings={settings} onSettingsChange={handleSettingsChange} handleApiCall={handleApiCall} records={records} pageParams={pageParams} />, title: '天気予報', showBack: true },
+    PLANT_DIAGNOSIS: { comp: <PlantDiagnosisPage setPage={changePage} onBack={onBack} settings={settings} onSettingsChange={handleSettingsChange} handleApiCall={handleApiCall} records={records} pageParams={pageParams} />, title: 'AI作物診断', showBack: true },
+    SETTINGS: { comp: <SettingsPage settings={settings} onSettingsChange={handleSettingsChange} onLogout={handleLogout} onExport={() => setExportModal({isOpen: true, mode: 'download'})} onImport={handleImport}/>, title: '設定', showBack: false },
   };
 
-  return (
-    <div className="bg-lime-50 dark:bg-gray-900 min-h-screen">
-      <SaveConfirmationModal isOpen={showSaveConfirm} onConfirm={handleSaveConfirm} onDeny={handleSaveDeny} onClose={() => setShowSaveConfirm(false)} />
-      <ConfirmationModal
-        isOpen={isConfirmationOpen}
-        {...confirmationModal}
-        onCancel={() => setIsConfirmationOpen(false)}
-      />
-      <ApiErrorModal
-        isOpen={isApiErrorModalOpen}
-        error={apiError}
-        onRetry={handleApiErrorRetry}
-        onStopAi={handleApiErrorStop}
-      />
-      <ExportModal
-        isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
-        onExport={handleExportRecords}
-        mode={exportModalMode}
-      />
-      <CameraActionModal
-        isOpen={isCameraActionModalOpen}
-        onClose={() => setIsCameraActionModalOpen(false)}
-        onTakePhoto={() => {
-          nativeCameraInputRef.current?.click();
-          setIsCameraActionModalOpen(false);
-        }}
-        onDiagnose={() => {
-          handleNavigate('PLANT_DIAGNOSIS');
-          setIsCameraActionModalOpen(false);
-        }}
-      />
-      <input
-        ref={nativeCameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={() => {
-          // 何もしない。ユーザーは写真を端末に保存したいだけ。
-        }}
-      />
-      {toastMessage && <Toast message={toastMessage} />}
+  const currentPage = pages[page] || pages.DASHBOARD;
+  
+  const showFab = (page === 'RECORD' && !pageParams.id) || (page === 'RECORD' && pageParams.id && formIsDirty);
 
-      <HamburgerMenu
-        isOpen={isMenuOpen}
-        onClose={() => setIsMenuOpen(false)}
-        setPage={handleNavigate}
-        activePage={page}
-        onLogout={handleLogout}
+  return (
+    <div className="bg-lime-50 dark:bg-gray-900 min-h-screen font-sans">
+      <PageHeader
+        title={currentPage.title}
+        onBack={currentPage.showBack ? () => handleDirtyStateBack(onBack) : undefined}
+        onMenuClick={() => setIsMenuOpen(true)}
       />
-      
       <main className="pb-24">
-        {renderPage()}
+        {currentPage.comp}
       </main>
-      
-      <footer className="fixed bottom-0 left-0 right-0 bg-[#fbf2e9] dark:bg-gray-800 shadow-top z-20 flex justify-around items-center h-12">
-        <button onClick={handleEmailClick} className="flex flex-col items-center justify-center text-stone-700 hover:text-amber-900 dark:text-gray-300 dark:hover:text-amber-400 w-1/5 h-full"><PaperPlaneIcon className="h-6 w-6 mb-1"/> <span className="text-xs">メール</span></button>
-        <button onClick={() => handleNavigate('HISTORY')} className="flex flex-col items-center justify-center text-stone-700 hover:text-amber-900 dark:text-gray-300 dark:hover:text-amber-400 w-1/5 h-full"><CalendarIcon className="h-6 w-6 mb-1"/> <span className="text-xs">カレンダー</span></button>
-        
-        {/* Prominent Home Button */}
-        <div className="w-1/5 h-full flex justify-center items-center">
-          <button 
-            onClick={() => handleNavigate('DASHBOARD')} 
-            className="flex flex-col items-center justify-center text-green-800 dark:text-white font-bold bg-[#f2e6d9] hover:bg-[#e9d9c8] dark:bg-green-800 dark:hover:bg-green-700 h-16 w-16 rounded-full transform -translate-y-4 shadow-lg border-4 border-lime-50 dark:border-gray-900 transition-all duration-200"
-            aria-label="ホーム"
+
+      <div className="fixed bottom-0 left-0 right-0 h-12 z-20">
+        <nav className="w-full h-full bg-stone-100 dark:bg-gray-800 shadow-t-lg border-t dark:border-gray-700 flex justify-around items-center">
+          <button onClick={() => setExportModal({isOpen: true, mode: 'email'})} className="flex flex-col items-center justify-center w-full h-full text-gray-500 dark:text-gray-400 transition-colors">
+            <PaperPlaneIcon className="h-6 w-6" />
+            <span className="text-xs">送信</span>
+          </button>
+          <button onClick={() => changePage('HISTORY')} className={`flex flex-col items-center justify-center w-full h-full transition-colors ${activeTab === 'HISTORY' ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+            <CalendarIcon className="h-6 w-6" />
+            <span className="text-xs">カレンダー</span>
+          </button>
+          
+          <div className="w-full h-full"></div>
+
+          <button onClick={() => changePage('TOOLS')} className={`flex flex-col items-center justify-center w-full h-full transition-colors ${['TOOLS', 'CALCULATOR', 'RECIPE_SEARCH', 'VEGETABLE_SEARCH', 'PEST_SEARCH', 'TERM_SEARCH', 'WEATHER'].includes(page) ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+            <ToolsIcon className="h-6 w-6" />
+            <span className="text-xs">ツール</span>
+          </button>
+          <button onClick={() => setIsCameraModalOpen(true)} className={`flex flex-col items-center justify-center w-full h-full transition-colors ${page === 'PLANT_DIAGNOSIS' ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+            <CameraIcon className="h-6 w-6" />
+            <span className="text-xs">カメラ</span>
+          </button>
+        </nav>
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 z-30 flex justify-center items-end pointer-events-none" style={{ width: '20%'}}>
+           <button
+              onClick={() => changePage('DASHBOARD')}
+              className={`w-16 h-16 bg-stone-100 dark:bg-gray-800 border-2 dark:border-gray-600 rounded-full shadow-lg flex items-center justify-center transition-transform pointer-events-auto ${activeTab === 'DASHBOARD' ? 'text-green-600 dark:text-green-400 border-green-500 dark:border-green-500' : 'text-gray-600 dark:text-gray-400 border-stone-200 dark:border-gray-700'}`}
+              aria-label="ホーム"
           >
-            <HomeIcon className="h-7 w-7 mb-0.5"/> 
-            <span className="text-xs leading-none">ホーム</span>
+              <HomeIcon className="h-8 w-8" />
           </button>
         </div>
-
-        <button onClick={() => handleNavigate('TOOLS')} className="flex flex-col items-center justify-center text-stone-700 hover:text-amber-900 dark:text-gray-300 dark:hover:text-amber-400 w-1/5 h-full"><ToolsIcon className="h-6 w-6 mb-1"/> <span className="text-xs">ツール</span></button>
-        <button onClick={() => setIsCameraActionModalOpen(true)} className="flex flex-col items-center justify-center text-stone-700 hover:text-amber-900 dark:text-gray-300 dark:hover:text-amber-400 w-1/5 h-full"><CameraIcon className="h-6 w-6 mb-1"/> <span className="text-xs">カメラ</span></button>
-      </footer>
+      </div>
       
-      {isDirty && (page === 'NEW_RECORD' || page === 'EDIT_RECORD') && <FloatingSaveButton onClick={() => recordPageRef.current?.handleSubmit()} />}
+      {showFab && (
+        <FloatingSaveButton onClick={() => recordPageRef.current?.handleSubmit()} />
+      )}
+      
+      {toastMessage && <Toast message={toastMessage} />}
+
+      <HamburgerMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} setPage={changePage} activePage={page} onLogout={handleLogout}/>
+
+      <SaveConfirmationModal
+        isOpen={saveModalOpen}
+        onConfirm={onSaveConfirm}
+        onDeny={onSaveDeny}
+        onClose={() => setSaveModalOpen(false)}
+      />
+
+      <ConfirmationModal 
+        isOpen={confirmationModal.isOpen}
+        {...confirmationModal}
+      />
+      
+      <ExportModal
+        isOpen={exportModal.isOpen}
+        mode={exportModal.mode}
+        onClose={() => setExportModal(prev => ({...prev, isOpen: false}))}
+        onExport={handleExport}
+      />
+      
+      <ApiErrorModal
+        isOpen={!!apiError}
+        error={apiError}
+        onRetry={retryApiCall}
+        onStopAi={stopAiFeatures}
+      />
+
+      <CameraActionModal
+        isOpen={isCameraModalOpen}
+        onClose={() => setIsCameraModalOpen(false)}
+        onSave={() => {
+          cameraSaveRef.current?.click();
+          setIsCameraModalOpen(false);
+        }}
+        onDiagnose={() => {
+          cameraDiagnoseRef.current?.click();
+          setIsCameraModalOpen(false);
+        }}
+      />
+      <input type="file" accept="image/*" capture="environment" ref={cameraSaveRef} className="hidden" />
+      <input type="file" accept="image/*" capture="environment" ref={cameraDiagnoseRef} onChange={handleDiagnoseFromCamera} className="hidden" />
     </div>
   );
 };
+// This is a placeholder, will be removed if googleDriveService.ts is empty
+const useGoogleDriveSync = (
+    records: CultivationRecord[],
+    setRecords: React.Dispatch<React.SetStateAction<CultivationRecord[]>>,
+    settings: AppSettings,
+    onSettingsChange: (newSettings: AppSettings) => void
+) => {
+    // Placeholder logic
+    const sync = () => console.log("Syncing...");
+    const login = () => console.log("Logging in...");
+    const logout = () => console.log("Logging out...");
+    const isReady = false;
+    const isLoggedIn = false;
 
-export default App;
-// #endregion
+    return { isReady, isLoggedIn, sync, login, logout };
+};
