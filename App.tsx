@@ -40,8 +40,8 @@ const OBSERVATION_STATUS_DETAILS = {
 };
 
 const FERTILIZERS = {
-  'M-Plus-1': { name: 'M-plus 1号', component: '窒素、リン酸、カリウム', usage: '成長促進、栄養補給' },
-  'M-Plus-2': { name: 'M-plus 2号', component: 'カルシウム、微量要素', usage: '品質向上、病害耐性強化' },
+  'M-Plus-1': { name: 'エムプラス1号', component: '窒素、リン酸、カリウム', usage: '成長促進、栄養補給' },
+  'M-Plus-2': { name: 'エムプラス2号', component: 'カルシウム、微量要素', usage: '品質向上、病害耐性強化' },
 };
 
 const CULTIVATION_LANES = [
@@ -1755,7 +1755,7 @@ const RecordCard: React.FC<{ record: CultivationRecord; onClick: () => void }> =
                             
                             if (detailsArray.length > 0) {
                               const detailsText = detailsArray.map(d => 
-                                `${FERTILIZERS[d.fertilizerType].name.replace('M-plus ', '')}:${d.dilution}倍`
+                                `${FERTILIZERS[d.fertilizerType].name.replace('エムプラス', '')}:${d.dilution}倍`
                               ).join(', ');
                               label = `${label} (${detailsText})`;
                             }
