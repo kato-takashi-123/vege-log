@@ -88,15 +88,15 @@ export const getDailyQuote = async (): Promise<string> => {
 
   const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
     model: 'gemini-2.5-flash',
-    contents: "家庭菜園や野菜に関する、面白くて少し笑える川柳を五・七・五の形式で一句生成してください。",
+    contents: "松岡修造が言いそうな、心に響くポジティブで熱いメッセージを一つ、20文字程度で生成してください。",
     config: {
-      systemInstruction: "あなたはユーモアのセンスがある川柳作家です。日常のささいな出来事を面白おかしく表現します。",
+      systemInstruction: "あなたは松岡修造です。人々の心を燃やし、今日一日を最高にするための熱い応援メッセージを届けます。",
       temperature: 0.9,
       thinkingConfig: { thinkingBudget: 0 }
     }
   }));
   const newQuote = response.text.trim().split('\n')[0];
-  const finalQuote = (newQuote && newQuote.length > 5) ? newQuote : "ミニトマト 赤くなるのを まだか待つ";
+  const finalQuote = (newQuote && newQuote.length > 5) ? newQuote : "君は太陽だ！熱い思いで、最高の野菜を育てろ！";
   
   try {
     localStorage.setItem(cacheKey, JSON.stringify({ quote: finalQuote, date: today }));

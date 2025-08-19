@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
 import { CultivationRecord, WorkType, ObservationStatus, PackageInfo, CropStage, WeatherInfo, PestInfo, VegetableInfo, PlantDiagnosis, FertilizerDetail, AppSettings } from './types';
 import { getDailyQuote, getVegetableInfo, searchPestInfo, extractTextFromImage, analyzeSeedPackage, searchCommonPestsForCrop, searchRecipes, generateRecipeImage, AiSearchResult, searchGardeningTerm, getWeatherInfo, ApiRateLimitError, diagnosePlantHealth, identifyVegetableFromImage } from './services/geminiService';
@@ -60,6 +58,11 @@ const PASTEL_COLORS = [
 const PET_BOTTLE_CAP_ML = 5;
 
 const SETTINGS_KEY = 'veggieLogSettings';
+const DB_NAME = 'VeggiLogDB';
+const DB_VERSION = 2; // Incremented to handle DB schema change
+const RECORDS_OBJECT_STORE_NAME = 'cultivationRecords';
+const RECORDS_KEY = 'allRecords';
+
 
 type ApiCallHandler = <T>(apiCall: () => Promise<T>) => Promise<T | undefined>;
 
@@ -86,6 +89,58 @@ type RecordPageHandle = {
 // #endregion
 
 // #region --- Helpers & Hooks ---
+
+// --- IndexedDB Helpers ---
+const openDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = (event) => {
+        const db = request.result;
+        if (db.objectStoreNames.contains('fileHandles')) {
+            db.deleteObjectStore('fileHandles');
+        }
+        if (!db.objectStoreNames.contains(RECORDS_OBJECT_STORE_NAME)) {
+            db.createObjectStore(RECORDS_OBJECT_STORE_NAME);
+        }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const idbGet = async (key: string): Promise<any> => {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(RECORDS_OBJECT_STORE_NAME, 'readonly');
+    const store = tx.objectStore(RECORDS_OBJECT_STORE_NAME);
+    const request = store.get(key);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const idbSet = async (key: string, value: any): Promise<void> => {
+  const db = await openDB();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(RECORDS_OBJECT_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(RECORDS_OBJECT_STORE_NAME);
+    const request = store.put(value, key);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const idbClear = async (): Promise<void> => {
+  const db = await openDB();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(RECORDS_OBJECT_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(RECORDS_OBJECT_STORE_NAME);
+    const request = store.clear();
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+};
+
 
 // --- Holiday Data (Simple) ---
 const JP_HOLIDAYS: Record<string, string> = {
@@ -168,6 +223,47 @@ const fileToGenerativePart = async (file: File): Promise<{ mimeType: string, dat
     reader.readAsDataURL(file);
   });
 };
+
+const resizeImage = (file: File, maxPixels: number): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const { width, height } = img;
+        const currentPixels = width * height;
+
+        if (currentPixels <= maxPixels) {
+          // No resize needed, just return the original base64
+          resolve(event.target?.result as string);
+          return;
+        }
+
+        const scale = Math.sqrt(maxPixels / currentPixels);
+        const newWidth = Math.floor(width * scale);
+        const newHeight = Math.floor(height * scale);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = newWidth;
+        canvas.height = newHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          return reject(new Error('Could not get canvas context'));
+        }
+        ctx.drawImage(img, 0, 0, newWidth, newHeight);
+
+        // Using JPEG for better compression for photos. A quality of 0.9 is a good balance.
+        const resizedBase64 = canvas.toDataURL('image/jpeg', 0.9); 
+        resolve(resizedBase64);
+      };
+      img.onerror = reject;
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
 
 const useVoiceRecognition = ({ onResult }: { onResult: (text: string) => void }) => {
   const [isListening, setIsListening] = useState(false);
@@ -806,7 +902,6 @@ const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
   );
 };
 
-
 const Dashboard: React.FC<{ 
   records: CultivationRecord[];
   onLaneClick: (recordData: Partial<CultivationRecord>) => void;
@@ -820,14 +915,14 @@ const Dashboard: React.FC<{
 
   useEffect(() => {
     if (settings.enableAiFeatures) {
-      setTip('AIが今日の一句を考えています...');
+      setTip('AIが今日の一言を考えています...');
       const fetchQuote = async () => {
         try {
           const quote = await handleApiCall(() => getDailyQuote());
           if (quote) {
             setTip(quote);
           } else {
-            setTip('一句の取得を中止しました。');
+            setTip('一言の取得を中止しました。');
           }
         } catch (e: any) {
           console.error("Error fetching daily quote", e);
@@ -1191,19 +1286,23 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
     }
   };
 
-  const handlePhotoCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoCapture = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
-      const reader = new FileReader();
-      reader.onloadend = () => setPhoto(reader.result as string);
-      reader.readAsDataURL(event.target.files[0]);
+      try {
+        const resized = await resizeImage(event.target.files[0], 2_000_000);
+        setPhoto(resized);
+      } catch (error) {
+        console.error("Photo resize failed", error);
+        alert("写真の処理に失敗しました。");
+      }
     }
   };
   
-  const handleSeedPhotoCapture = (event: React.ChangeEvent<HTMLInputElement>, side: 'front' | 'back') => {
+  const handleSeedPhotoCapture = async (event: React.ChangeEvent<HTMLInputElement>, side: 'front' | 'back') => {
     if (event.target.files && event.target.files[0]) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
+      const file = event.target.files[0];
+      try {
+        const result = await resizeImage(file, 2_000_000);
         if (side === 'front') {
           setSeedPackageFront(result);
         } else {
@@ -1212,8 +1311,10 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
           setPestInfo(null);
           stopAnalysisRef.current = false;
         }
-      };
-      reader.readAsDataURL(event.target.files[0]);
+      } catch (error) {
+        console.error("Seed photo resize failed", error);
+        alert("写真の処理に失敗しました。");
+      }
     }
     // Reset input value to allow re-uploading the same file
     event.target.value = '';
@@ -2970,7 +3071,8 @@ const SettingsPage: React.FC<{
   onLogout: () => void;
   onExport: () => void;
   onImport: (event: React.ChangeEvent<HTMLInputElement>) => void;
-}> = ({ settings, onSettingsChange, onLogout, onExport, onImport }) => {
+  onDeleteAllData: () => void;
+}> = ({ settings, onSettingsChange, onLogout, onExport, onImport, onDeleteAllData }) => {
   const [localSettings, setLocalSettings] = useState(settings);
   const importInputRef = useRef<HTMLInputElement>(null);
   
@@ -3049,16 +3151,23 @@ const SettingsPage: React.FC<{
 
       <div className="space-y-2">
         <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">データ管理</h3>
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow space-y-3">
-          <input type="file" accept=".json" ref={importInputRef} onChange={onImport} className="hidden" />
-          <button onClick={() => importInputRef.current?.click()} className="w-full flex items-center justify-center gap-2 bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 font-bold py-2.5 px-4 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors">
-            <FileImportIcon className="h-5 w-5"/>
-            <span>記録をインポート</span>
-          </button>
-          <button onClick={onExport} className="w-full flex items-center justify-center gap-2 bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 font-bold py-2.5 px-4 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors">
-            <ExportIcon className="h-5 w-5"/>
-            <span>すべての記録をエクスポート</span>
-          </button>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow space-y-4">
+            <p className="text-xs text-gray-500">記録データはブラウザ内に自動で保存されます。以下の機能で、手動でのバックアップ（エクスポート）と復元（インポート）が可能です。</p>
+            <div className="space-y-3">
+              <input type="file" accept=".json" ref={importInputRef} onChange={onImport} className="hidden" />
+              <button onClick={() => importInputRef.current?.click()} className="w-full flex items-center justify-center gap-2 bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 font-bold py-2.5 px-4 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors">
+                <FileImportIcon className="h-5 w-5"/>
+                <span>記録をインポート (JSON)</span>
+              </button>
+              <button onClick={onExport} className="w-full flex items-center justify-center gap-2 bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 font-bold py-2.5 px-4 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors">
+                <ExportIcon className="h-5 w-5"/>
+                <span>すべての記録をエクスポート (JSON)</span>
+              </button>
+              <button onClick={onDeleteAllData} className="w-full flex items-center justify-center gap-2 bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 font-bold py-2.5 px-4 rounded-lg hover:bg-red-200 dark:hover:bg-red-800/50 transition-colors">
+                <TrashIcon className="h-5 w-5"/>
+                <span>すべての栽培データを削除</span>
+              </button>
+            </div>
         </div>
       </div>
       
@@ -3133,29 +3242,50 @@ export const App = () => {
   const cameraDiagnoseRef = useRef<HTMLInputElement>(null);
   
   const goBackActionRef = useRef<(() => void) | null>(null);
+  
+  const [isLoading, setIsLoading] = useState(true);
+  const debouncedSaveRef = useRef<number | null>(null);
 
-  // Load data from localStorage on initial render
   useEffect(() => {
     try {
-      const savedRecords = localStorage.getItem('cultivationRecords');
-      if (savedRecords) setRecords(JSON.parse(savedRecords));
-
       const savedSettings = localStorage.getItem(SETTINGS_KEY);
       if (savedSettings) setSettings(prev => ({ ...prev, ...JSON.parse(savedSettings) }));
     } catch (error) {
-      console.error("Failed to load data from localStorage", error);
+      console.error("Failed to load settings from localStorage", error);
     }
+
+    idbGet(RECORDS_KEY).then(savedRecords => {
+      if (savedRecords && Array.isArray(savedRecords)) {
+        setRecords(savedRecords);
+      }
+    }).catch(e => {
+        console.error("Error loading records from IndexedDB", e);
+    }).finally(() => {
+        setIsLoading(false);
+    });
   }, []);
 
-  // Save records to localStorage whenever they change
+  // Save records to IndexedDB whenever they change
+  const isInitialMount = useRef(true);
   useEffect(() => {
-    try {
-      localStorage.setItem('cultivationRecords', JSON.stringify(records));
-    } catch (error) {
-      console.error("Failed to save records to localStorage", error);
-      alert("記録の保存に失敗しました。ストレージの空き容量が不足している可能性があります。");
+    if (isLoading) {
+        return;
     }
-  }, [records]);
+    if (isInitialMount.current) {
+        isInitialMount.current = false;
+        return;
+    }
+
+    if (debouncedSaveRef.current) clearTimeout(debouncedSaveRef.current);
+    
+    debouncedSaveRef.current = window.setTimeout(() => {
+        idbSet(RECORDS_KEY, records).catch(e => console.error("Failed to save records to IndexedDB", e));
+    }, 500);
+
+    return () => {
+        if (debouncedSaveRef.current) clearTimeout(debouncedSaveRef.current);
+    };
+  }, [records, isLoading]);
 
   // Save settings to localStorage whenever they change
   const handleSettingsChange = useCallback((newSettings: AppSettings) => {
@@ -3292,6 +3422,7 @@ export const App = () => {
           onConfirm: () => {
               setIsLoggedIn(false);
               setPage('LOGIN');
+              setRecords([]);
               setConfirmationModal(s => ({...s, isOpen: false}));
           },
           onCancel: () => setConfirmationModal(s => ({...s, isOpen: false})),
@@ -3316,85 +3447,21 @@ export const App = () => {
     setFormIsDirty(false);
   };
 
-  const handleExport = (range: string, customStart?: string, customEnd?: string) => {
-    let recordsToExport = records;
-    const today = new Date();
-    today.setHours(0,0,0,0);
-
-    switch(range) {
-        case 'today':
-            recordsToExport = records.filter(r => r.date === toISODateString(today));
-            break;
-        case 'thisWeek': {
-            const weekStart = new Date(today);
-            const dayOfWeek = weekStart.getDay();
-            const diff = settings.startOfWeek === 'monday' 
-                ? (dayOfWeek === 0 ? -6 : 1 - dayOfWeek)
-                : -dayOfWeek;
-            weekStart.setDate(weekStart.getDate() + diff);
-            recordsToExport = records.filter(r => parseDateString(r.date) >= weekStart);
-            break;
-        }
-        case 'thisMonth': {
-            const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-            recordsToExport = records.filter(r => parseDateString(r.date) >= monthStart);
-            break;
-        }
-        case 'lastMonth': {
-            const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
-            const lastMonthStart = new Date(lastMonthEnd.getFullYear(), lastMonthEnd.getMonth(), 1);
-            recordsToExport = records.filter(r => {
-                const d = parseDateString(r.date);
-                return d >= lastMonthStart && d <= lastMonthEnd;
-            });
-            break;
-        }
-        case 'custom': {
-             if(customStart && customEnd) {
-                const start = parseDateString(customStart);
-                const end = parseDateString(customEnd);
-                recordsToExport = records.filter(r => {
-                    const d = parseDateString(r.date);
-                    return d >= start && d <= end;
-                });
-            }
-            break;
-        }
-        case 'all':
-        default:
-             // Use all records
-            break;
-    }
-    
-    if (recordsToExport.length === 0) {
+  const handleExport = () => {
+    if (records.length === 0) {
         alert("エクスポート対象の記録がありません。");
         return;
     }
 
-    const sortedRecords = [...recordsToExport].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + encodeURIComponent(exportRecordsToCsv(sortedRecords));
+    const jsonContent = "data:application/json;charset=utf-8," + encodeURIComponent(JSON.stringify(records, null, 2));
     const link = document.createElement("a");
-    link.setAttribute("href", csvContent);
-    const fileName = `veggielog_export_${toISODateString(new Date())}.csv`;
+    link.setAttribute("href", jsonContent);
+    const fileName = `veggielog_export_${toISODateString(new Date())}.json`;
     link.setAttribute("download", fileName);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
-    if (exportModal.mode === 'email') {
-        const subject = encodeURIComponent(`${settings.teamName} 栽培記録 (${range})`);
-        const body = encodeURIComponent(`
-${settings.teamName}の栽培記録を添付します。
-
-期間: ${range} ${customStart ? `${customStart} ~ ${customEnd}`: ''}
-ファイル名: ${fileName}
-
-ご確認よろしくお願いいたします。
-        `);
-        window.location.href = `mailto:?subject=${subject}&body=${body}`;
-    }
-    
-    setExportModal({isOpen: false, mode: 'download'});
+    showToast("すべての記録をエクスポートしました。");
   };
 
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -3413,15 +3480,11 @@ ${settings.teamName}の栽培記録を添付します。
             setConfirmationModal({
                 isOpen: true,
                 title: '記録のインポート',
-                message: `${importedRecords.length}件の記録をインポートしますか？\n既存の記録とIDが重複する場合、上書きされます。`,
+                message: `${importedRecords.length}件の記録をインポートしますか？\n現在の記録は上書きされます。`,
                 confirmText: 'インポート',
                 confirmColor: 'bg-blue-600 hover:bg-blue-700',
                 onConfirm: () => {
-                    setRecords(prev => {
-                        const recordsMap = new Map(prev.map(r => [r.id, r]));
-                        importedRecords.forEach(r => recordsMap.set(r.id, r));
-                        return Array.from(recordsMap.values());
-                    });
+                    setRecords(importedRecords);
                     showToast(`${importedRecords.length}件の記録をインポートしました。`);
                     setConfirmationModal(s => ({...s, isOpen: false}));
                 },
@@ -3435,6 +3498,28 @@ ${settings.teamName}の栽培記録を添付します。
     reader.readAsText(file);
     // Reset file input
     event.target.value = '';
+  };
+  
+  const handleDeleteAllData = () => {
+    setConfirmationModal({
+        isOpen: true,
+        title: '全データ削除',
+        message: '本当にすべての栽培データを削除しますか？\nこの操作は元に戻せません。バックアップを取ることをお勧めします。',
+        confirmText: 'はい、すべて削除する',
+        onConfirm: async () => {
+            try {
+                await idbClear();
+                setRecords([]);
+                setConfirmationModal(s => ({...s, isOpen: false}));
+                showToast('すべての栽培データを削除しました。');
+            } catch (error) {
+                console.error("Failed to clear all data from IndexedDB", error);
+                alert("データの削除に失敗しました。");
+                setConfirmationModal(s => ({...s, isOpen: false}));
+            }
+        },
+        onCancel: () => setConfirmationModal(s => ({...s, isOpen: false})),
+    });
   };
   
   const handleDiagnoseFromCamera = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -3454,7 +3539,12 @@ ${settings.teamName}の栽培記録を添付します。
 
   const pages: { [key: string]: { comp: React.ReactNode, title: string, showBack: boolean } } = {
     DASHBOARD: {
-      comp: <Dashboard records={records} onLaneClick={(recordData) => changePage('RECORD', recordData)} settings={settings} handleApiCall={handleApiCall} />,
+      comp: <Dashboard 
+        records={records} 
+        onLaneClick={(recordData) => changePage('RECORD', recordData)} 
+        settings={settings} 
+        handleApiCall={handleApiCall} 
+        />,
       title: settings.teamName,
       showBack: false,
     },
@@ -3485,7 +3575,7 @@ ${settings.teamName}の栽培記録を添付します。
     TERM_SEARCH: { comp: <TermSearchPage setPage={changePage} onBack={onBack} settings={settings} onSettingsChange={handleSettingsChange} handleApiCall={handleApiCall} records={records} pageParams={pageParams} />, title: '園芸用語辞典', showBack: true },
     WEATHER: { comp: <WeatherPage setPage={changePage} onBack={onBack} settings={settings} onSettingsChange={handleSettingsChange} handleApiCall={handleApiCall} records={records} pageParams={pageParams} />, title: '天気予報', showBack: true },
     PLANT_DIAGNOSIS: { comp: <PlantDiagnosisPage setPage={changePage} onBack={onBack} settings={settings} onSettingsChange={handleSettingsChange} handleApiCall={handleApiCall} records={records} pageParams={pageParams} />, title: 'AI作物診断', showBack: true },
-    SETTINGS: { comp: <SettingsPage settings={settings} onSettingsChange={handleSettingsChange} onLogout={handleLogout} onExport={() => setExportModal({isOpen: true, mode: 'download'})} onImport={handleImport}/>, title: '設定', showBack: false },
+    SETTINGS: { comp: <SettingsPage settings={settings} onSettingsChange={handleSettingsChange} onLogout={handleLogout} onExport={handleExport} onImport={handleImport} onDeleteAllData={handleDeleteAllData} />, title: '設定', showBack: false },
   };
 
   const currentPage = pages[page] || pages.DASHBOARD;
@@ -3500,11 +3590,11 @@ ${settings.teamName}の栽培記録を添付します。
         onMenuClick={() => setIsMenuOpen(true)}
       />
       <main className="pb-24">
-        {currentPage.comp}
+        {isLoading ? <div className="text-center p-8">データを読み込み中...</div> : currentPage.comp}
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 h-12 z-20">
-        <nav className="w-full h-full bg-stone-100 dark:bg-gray-800 shadow-t-lg border-t dark:border-gray-700 flex justify-around items-center">
+        <nav className="w-full h-full bg-[#faf8f0] dark:bg-gray-800 shadow-t-lg border-t dark:border-gray-700 flex justify-around items-center">
           <button onClick={() => setExportModal({isOpen: true, mode: 'email'})} className="flex flex-col items-center justify-center w-full h-full text-gray-500 dark:text-gray-400 transition-colors">
             <PaperPlaneIcon className="h-6 w-6" />
             <span className="text-xs">送信</span>
@@ -3528,7 +3618,7 @@ ${settings.teamName}の栽培記録を添付します。
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 z-30 flex justify-center items-end pointer-events-none" style={{ width: '20%'}}>
            <button
               onClick={() => changePage('DASHBOARD')}
-              className={`w-16 h-16 bg-stone-100 dark:bg-gray-800 border-2 dark:border-gray-600 rounded-full shadow-lg flex items-center justify-center transition-transform pointer-events-auto ${activeTab === 'DASHBOARD' ? 'text-green-600 dark:text-green-400 border-green-500 dark:border-green-500' : 'text-gray-600 dark:text-gray-400 border-stone-200 dark:border-gray-700'}`}
+              className={`w-16 h-16 bg-[#faf8f0] dark:bg-gray-800 border-2 dark:border-gray-600 rounded-full shadow-lg flex items-center justify-center transition-transform pointer-events-auto ${activeTab === 'DASHBOARD' ? 'text-green-600 dark:text-green-400 border-green-500 dark:border-green-500' : 'text-gray-600 dark:text-gray-400 border-stone-200 dark:border-gray-700'}`}
               aria-label="ホーム"
           >
               <HomeIcon className="h-8 w-8" />
@@ -3560,7 +3650,7 @@ ${settings.teamName}の栽培記録を添付します。
         isOpen={exportModal.isOpen}
         mode={exportModal.mode}
         onClose={() => setExportModal(prev => ({...prev, isOpen: false}))}
-        onExport={handleExport}
+        onExport={() => alert("この機能は現在CSVエクスポートのみ対応しています。")}
       />
       
       <ApiErrorModal
@@ -3586,20 +3676,4 @@ ${settings.teamName}の栽培記録を添付します。
       <input type="file" accept="image/*" capture="environment" ref={cameraDiagnoseRef} onChange={handleDiagnoseFromCamera} className="hidden" />
     </div>
   );
-};
-// This is a placeholder, will be removed if googleDriveService.ts is empty
-const useGoogleDriveSync = (
-    records: CultivationRecord[],
-    setRecords: React.Dispatch<React.SetStateAction<CultivationRecord[]>>,
-    settings: AppSettings,
-    onSettingsChange: (newSettings: AppSettings) => void
-) => {
-    // Placeholder logic
-    const sync = () => console.log("Syncing...");
-    const login = () => console.log("Logging in...");
-    const logout = () => console.log("Logging out...");
-    const isReady = false;
-    const isLoggedIn = false;
-
-    return { isReady, isLoggedIn, sync, login, logout };
 };
