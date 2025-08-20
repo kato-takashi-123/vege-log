@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { CultivationRecord, AppSettings } from '../types';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { CultivationRecord, AppSettings, ApiCallHandler } from '../types';
 import { getDailyQuote } from '../services/geminiService';
 import { CULTIVATION_LANES, PASTEL_COLORS } from '../lib/constants';
 import { toISODateString } from '../lib/utils';
-import { LeafIcon, MoundIcon } from '../components/Icons';
-import { ApiCallHandler } from '../App';
+import { LeafIcon, MoundIcon, RefreshIcon } from '../components/Icons';
 
 type DashboardProps = { 
   records: CultivationRecord[];
@@ -15,31 +14,45 @@ type DashboardProps = {
 
 const Dashboard: React.FC<DashboardProps> = ({ records, onLaneClick, settings, handleApiCall }) => {
   const [tip, setTip] = useState('今日の一言を読み込み中...');
+  const [isRefreshingTip, setIsRefreshingTip] = useState(false);
   
   const today = new Date();
   const formattedDate = `${today.toLocaleDateString()} (${['日', '月', '火', '水', '木', '金', '土'][today.getDay()]})`;
 
-  useEffect(() => {
-    if (settings.enableAiFeatures) {
-      setTip('AIが今日の一言を考えています...');
-      const fetchQuote = async () => {
-        try {
-          const quote = await handleApiCall(() => getDailyQuote());
-          if (quote) {
-            setTip(quote);
-          } else {
-            setTip('一言の取得を中止しました。');
-          }
-        } catch (e: any) {
-          console.error("Error fetching daily quote", e);
-          setTip('今日の一言の取得に失敗しました。');
-        }
-      };
-      fetchQuote();
-    } else {
+  const fetchQuote = useCallback(async (forceRefresh = false) => {
+    if (!settings.enableAiFeatures) {
       setTip("AI機能は設定で無効になっています。");
+      return;
     }
-  }, [settings.enableAiFeatures, handleApiCall]);
+    
+    if (forceRefresh) {
+        setIsRefreshingTip(true);
+    } else {
+        setTip('AIが今日の一言を考えています...');
+    }
+
+    try {
+      const quote = await handleApiCall(() => getDailyQuote(settings.dailyQuoteTheme, forceRefresh));
+      if (quote) {
+        setTip(quote);
+      } else if (!forceRefresh) {
+        setTip('一言の取得を中止しました。');
+      }
+    } catch (e: any) {
+      console.error("Error fetching daily quote", e);
+      if (!forceRefresh) {
+        setTip('今日の一言の取得に失敗しました。');
+      }
+    } finally {
+        if (forceRefresh) {
+            setIsRefreshingTip(false);
+        }
+    }
+  }, [settings.enableAiFeatures, settings.dailyQuoteTheme, handleApiCall]);
+
+  useEffect(() => {
+    fetchQuote(false);
+  }, [fetchQuote]);
 
   const laneStatus = useMemo(() => {
     const status: { [key: string]: CultivationRecord } = {};
@@ -56,8 +69,22 @@ const Dashboard: React.FC<DashboardProps> = ({ records, onLaneClick, settings, h
   return (
     <div className="p-4 md:p-6 space-y-6">
       <div className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-md border border-green-200 dark:border-green-800">
-        <h3 className="font-semibold text-green-800 dark:text-green-300 mb-2">今日の一言</h3>
-        <p className="text-gray-600 dark:text-gray-400 italic text-lg whitespace-nowrap overflow-hidden text-ellipsis">{tip}</p>
+        <div className="flex justify-between items-start">
+            <div className="flex-grow pr-2">
+                <h3 className="font-semibold text-green-800 dark:text-green-300 mb-1">今日の一言</h3>
+                <p className="text-gray-600 dark:text-gray-400 italic text-base leading-tight h-10 overflow-hidden">
+                    {tip}
+                </p>
+            </div>
+            <button
+                onClick={() => fetchQuote(true)}
+                disabled={isRefreshingTip || !settings.enableAiFeatures}
+                className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 flex-shrink-0"
+                aria-label="新しい一言を生成"
+            >
+                <RefreshIcon className={`h-5 w-5 ${isRefreshingTip ? 'animate-spin' : ''}`} />
+            </button>
+        </div>
       </div>
 
       <div>
@@ -69,12 +96,20 @@ const Dashboard: React.FC<DashboardProps> = ({ records, onLaneClick, settings, h
           {CULTIVATION_LANES.map((lane, index) => {
             const current = laneStatus[lane];
             const cardColor = PASTEL_COLORS[index % PASTEL_COLORS.length];
-            const recordData = current ? current : { cultivationLane: lane, date: toISODateString(new Date()) };
+            const recordDataForClick: Partial<CultivationRecord> = {
+                cultivationLane: lane,
+                cropName: current?.cropName || '',
+                date: toISODateString(new Date()),
+                seedPackagePhotoFront: current?.seedPackagePhotoFront,
+                seedPackagePhotoBack: current?.seedPackagePhotoBack,
+                aiPackageAnalysis: current?.aiPackageAnalysis,
+                aiPestInfo: current?.aiPestInfo,
+            };
             
             return (
               <button
                 key={lane}
-                onClick={() => onLaneClick(recordData)}
+                onClick={() => onLaneClick(recordDataForClick)}
                 className={`${cardColor} rounded-xl shadow-md h-auto min-h-[7rem] w-full hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transform transition-transform duration-200 overflow-hidden flex items-stretch`}
               >
                 <div className="w-1/2 relative p-2 flex flex-col justify-center">

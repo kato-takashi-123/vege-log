@@ -1,10 +1,11 @@
 
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { PlantDiagnosis, AppSettings, CultivationRecord } from '../types';
 import { diagnosePlantHealth } from '../services/geminiService';
 import { fileToGenerativePart } from '../lib/utils';
 import { FormattedContent } from '../components/common/FormattedContent';
-import { CameraIcon, ImageIcon, ObservationIcon, LeafIcon, PestControlIcon, FertilizingIcon, WateringIcon, WeatherIcon } from '../components/Icons';
+import { CameraIcon, ImageIcon, ObservationIcon, LeafIcon, PestControlIcon, FertilizingIcon, WateringIcon, WeatherIcon, VegetableSearchIcon } from '../components/Icons';
 import { ApiCallHandler } from '../types';
 
 type PageProps = {
@@ -23,20 +24,14 @@ const PlantDiagnosisPage: React.FC<PageProps> = ({ handleApiCall, pageParams, se
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   
+  const shouldAutoDiagnose = useRef(false);
+
   useEffect(() => {
     if (pageParams?.preselectedImage) {
       setImage(pageParams.preselectedImage);
+      shouldAutoDiagnose.current = true;
     }
   }, [pageParams?.preselectedImage]);
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setImage({ file, preview: URL.createObjectURL(file) });
-      setResult(null);
-    }
-    e.target.value = '';
-  };
 
   const handleDiagnose = useCallback(async () => {
     if (!image) return;
@@ -55,7 +50,23 @@ const PlantDiagnosisPage: React.FC<PageProps> = ({ handleApiCall, pageParams, se
       setIsLoading(false);
     }
   }, [image, handleApiCall]);
-  
+
+  useEffect(() => {
+    if (image && shouldAutoDiagnose.current) {
+      handleDiagnose();
+      shouldAutoDiagnose.current = false; // Reset the flag to prevent re-runs
+    }
+  }, [image, handleDiagnose]);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImage({ file, preview: URL.createObjectURL(file) });
+      setResult(null);
+    }
+    e.target.value = '';
+  };
+
   const DiagnosisCard: React.FC<{ title: string; children: React.ReactNode; icon: React.FC<{className?: string}> }> = ({ title, children, icon: Icon }) => (
       <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
         <div className="flex items-center gap-3 mb-2">
@@ -127,6 +138,10 @@ const PlantDiagnosisPage: React.FC<PageProps> = ({ handleApiCall, pageParams, se
         
         {result && (
           <div className="space-y-4 fade-in">
+            <DiagnosisCard title="診断対象の作物" icon={VegetableSearchIcon}>
+              <p className="font-bold text-lg text-gray-800 dark:text-gray-200">{result.plantName}</p>
+            </DiagnosisCard>
+            
             <DiagnosisCard title="総合評価" icon={LeafIcon}>
                 <p className="font-semibold text-base">{result.overallHealth}</p>
             </DiagnosisCard>

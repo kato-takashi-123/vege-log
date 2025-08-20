@@ -58,6 +58,17 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange,
             <label htmlFor="enable-ai" className="text-sm font-medium text-gray-700 dark:text-gray-300">AIアシスタント機能</label>
             <input type="checkbox" id="enable-ai" checked={localSettings.enableAiFeatures} onChange={e => handleSettingsChange({ enableAiFeatures: e.target.checked })} className="h-6 w-11 rounded-full bg-gray-200 after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all checked:bg-green-600 checked:after:translate-x-full focus:ring-0" />
           </div>
+          <div>
+            <label htmlFor="quote-theme" className="block text-sm font-medium text-gray-700 dark:text-gray-300">「今日の一言」のテーマ</label>
+            <input 
+              type="text"
+              id="quote-theme"
+              value={localSettings.dailyQuoteTheme} 
+              onChange={e => handleSettingsChange({ dailyQuoteTheme: e.target.value })} 
+              className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg"
+              placeholder="例：野菜のことわざ"
+            />
+          </div>
         </div>
       </div>
 

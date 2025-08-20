@@ -69,37 +69,43 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "NO_KEY" });
 
 // #region --- Public Service Functions ---
 
-export const getDailyQuote = async (): Promise<string> => {
+export const getDailyQuote = async (theme: string, forceRefresh = false): Promise<string> => {
   const cacheKey = 'dailyQuoteCache';
   const today = new Date().toISOString().split('T')[0];
+  const effectiveTheme = theme.trim() || '今日は何の日？';
 
-  try {
-    const cachedData = localStorage.getItem(cacheKey);
-    if (cachedData) {
-      const { quote, date } = JSON.parse(cachedData);
-      if (date === today && quote) {
-        return quote;
+  if (!forceRefresh) {
+    try {
+      const cachedData = localStorage.getItem(cacheKey);
+      if (cachedData) {
+        const cache = JSON.parse(cachedData);
+        if (cache[effectiveTheme] && cache[effectiveTheme].date === today && cache[effectiveTheme].quote) {
+          return cache[effectiveTheme].quote;
+        }
       }
+    } catch (error) {
+      console.error("Failed to read daily quote from cache", error);
+      localStorage.removeItem(cacheKey);
     }
-  } catch (error) {
-    console.error("Failed to read daily quote from cache", error);
-    localStorage.removeItem(cacheKey);
   }
 
   const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
     model: 'gemini-2.5-flash',
-    contents: "松岡修造が言いそうな、心に響くポジティブで熱いメッセージを一つ、20文字程度で生成してください。",
+    contents: `「${effectiveTheme}」というテーマについて調べ、面白くて簡潔な一言知識を教えてください。`,
     config: {
-      systemInstruction: "あなたは松岡修造です。人々の心を燃やし、今日一日を最高にするための熱い応援メッセージを届けます。",
-      temperature: 0.9,
+      systemInstruction: "あなたは知識豊富なアシスタントです。与えられたテーマについて、簡潔で興味深い事実を一つだけ、最大でも50文字程度で回答してください。",
+      temperature: 0.7,
       thinkingConfig: { thinkingBudget: 0 }
     }
   }));
   const newQuote = response.text.trim().split('\n')[0];
-  const finalQuote = (newQuote && newQuote.length > 5) ? newQuote : "君は太陽だ！熱い思いで、最高の野菜を育てろ！";
+  const finalQuote = (newQuote && newQuote.length > 5) ? newQuote : "新しい一日、新しい発見。最高の野菜を育てましょう！";
   
   try {
-    localStorage.setItem(cacheKey, JSON.stringify({ quote: finalQuote, date: today }));
+    const cachedData = localStorage.getItem(cacheKey);
+    const cache = cachedData ? JSON.parse(cachedData) : {};
+    cache[effectiveTheme] = { quote: finalQuote, date: today };
+    localStorage.setItem(cacheKey, JSON.stringify(cache));
   } catch (error) {
     console.error("Failed to write daily quote to cache", error);
   }
@@ -439,6 +445,19 @@ export const searchGardeningTerm = async (query: string): Promise<AiSearchResult
   };
 };
 
+const convertWindDirection = (deg: number): string => {
+    const directions = ['北', '北北東', '北東', '東北東', '東', '東南東', '南東', '南南東', '南', '南南西', '南西', '西南西', '西', '西北西', '北西', '北北西'];
+    const index = Math.round(deg / 22.5) % 16;
+    return directions[index];
+};
+
+const formatDateInJST = (date: Date): string => {
+    const year = date.toLocaleString('en-US', { timeZone: 'Asia/Tokyo', year: 'numeric' });
+    const month = date.toLocaleString('en-US', { timeZone: 'Asia/Tokyo', month: '2-digit' });
+    const day = date.toLocaleString('en-US', { timeZone: 'Asia/Tokyo', day: '2-digit' });
+    return `${year}-${month}-${day}`;
+};
+
 export const getWeatherInfo = async (location: string, apiKey: string): Promise<WeatherInfo> => {
     const cacheKey = `openWeatherCache_${location}`;
     const cacheDuration = 15 * 60 * 1000; // 15 minutes
@@ -485,21 +504,28 @@ export const getWeatherInfo = async (location: string, apiKey: string): Promise<
                 humidity: currentData.main.humidity,
                 wbgt: undefined, // OpenWeatherMapはWBGTを提供しない
             },
-            hourly: forecastData.list.slice(0, 16).map((item: any) => ({ // 48時間分 (3h * 16)
-                time: new Date(item.dt * 1000).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false }),
-                date: new Date(item.dt * 1000).toISOString().split('T')[0],
-                temperature: item.main.temp,
-                precipitation: item.rain?.['3h'] || 0,
-                weather: item.weather[0]?.description || '不明',
-                humidity: item.main.humidity,
-            })),
+            hourly: forecastData.list.slice(0, 16).map((item: any) => { // 48時間分 (3h * 16)
+                const itemDate = new Date(item.dt * 1000);
+                return {
+                    time: itemDate.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', hour12: false }),
+                    date: formatDateInJST(itemDate),
+                    temperature: item.main.temp,
+                    precipitation: item.rain?.['3h'] || item.snow?.['3h'] || 0,
+                    weather: item.weather[0]?.description || '不明',
+                    humidity: item.main.humidity,
+                    pop: item.pop || 0,
+                    windSpeed: item.wind?.speed || 0,
+                    windDirection: convertWindDirection(item.wind?.deg || 0),
+                }
+            }),
             weekly: Object.values(
                 forecastData.list.reduce((acc: any, item: any) => {
-                    const dateStr = new Date(item.dt * 1000).toISOString().split('T')[0];
+                    const itemDate = new Date(item.dt * 1000);
+                    const dateStr = formatDateInJST(itemDate);
                     if (!acc[dateStr]) {
                         acc[dateStr] = {
                             date: dateStr,
-                            day: new Date(item.dt * 1000).toLocaleDateString('ja-JP', { weekday: 'long' }),
+                            day: itemDate.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', weekday: 'long' }),
                             temp_max: -Infinity,
                             temp_min: Infinity,
                             weather_descriptions: [],

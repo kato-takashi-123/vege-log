@@ -82,6 +82,9 @@ export interface WeatherInfo {
     precipitation: number;
     weather: string;
     humidity: number;
+    pop: number;
+    windSpeed: number;
+    windDirection: string;
   }[];
   weekly: {
     date: string;
@@ -153,6 +156,7 @@ export type AppSettings = {
   weatherLocation: string;
   darkModeContrast: 'normal' | 'high';
   openWeatherApiKey?: string;
+  dailyQuoteTheme: string;
 };
 
 export type ApiCallHandler = <T>(apiCall: () => Promise<T>) => Promise<T | undefined>;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
-import { CultivationRecord, WorkType, ObservationStatus, PackageInfo, CropStage, FertilizerDetail, AppSettings } from '../types';
+import { CultivationRecord, WorkType, ObservationStatus, PackageInfo, CropStage, FertilizerDetail, AppSettings, ApiCallHandler } from '../types';
 import { extractTextFromImage, analyzeSeedPackage, searchCommonPestsForCrop } from '../services/geminiService';
 import {
   WORK_TYPE_DETAILS, CROP_STAGE_DETAILS, OBSERVATION_STATUS_DETAILS, FERTILIZERS, CULTIVATION_LANES
@@ -10,7 +10,6 @@ import {
   CloseIcon, MicrophoneIcon, CameraIcon, ImageIcon, RefreshIcon, TrashIcon
 } from '../components/Icons';
 import { CalendarModal, ImageSourceModal } from '../components/modals';
-import { ApiCallHandler } from '../App';
 import { ConfirmationModalProps } from '../components/modals';
 
 export type RecordPageHandle = {
@@ -331,7 +330,23 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
       }
       return;
     }
-    onSaveRecord(getRecordData());
+    
+    const todayString = toISODateString(new Date());
+
+    const proceedWithSave = () => {
+        onSaveRecord(getRecordData());
+    };
+
+    if (recordDate !== todayString) {
+        onConfirmationRequest({
+            title: '日付の確認',
+            message: '過去の作業の修正ですか？',
+            confirmText: 'はい、修正する',
+            onConfirm: proceedWithSave,
+        });
+    } else {
+        proceedWithSave();
+    }
   };
   
   const validateAndGetRecordData = (): { record: CultivationRecord | null; error: string } => {

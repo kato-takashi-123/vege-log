@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CultivationRecord, AppSettings, ApiCallHandler } from './types';
 import { ApiRateLimitError } from './services/geminiService';
@@ -41,7 +42,8 @@ export const App = () => {
     enablePumiceWash: false,
     weatherLocation: 'nagoya,JP',
     darkModeContrast: 'normal',
-    openWeatherApiKey: ''
+    openWeatherApiKey: '',
+    dailyQuoteTheme: '今日は何の日？'
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -212,6 +214,7 @@ export const App = () => {
 
   const changePage = (newPage: string, params?: any) => {
     const action = () => {
+        window.scrollTo(0, 0);
         setPage(newPage as any);
         if (params) setPageParams(params);
         setActiveTab(newPage);
@@ -388,7 +391,7 @@ export const App = () => {
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 h-12 z-20">
-        <nav className="w-full h-full bg-[#faf8f0] dark:bg-gray-800 shadow-t-lg border-t dark:border-gray-700 flex justify-around items-center">
+        <nav className="w-full h-full bg-[#ffe8d1] dark:bg-gray-800 shadow-t-lg border-t dark:border-gray-700 flex justify-around items-center">
           <button onClick={() => setExportModal({isOpen: true, mode: 'email'})} className="flex flex-col items-center justify-center w-full h-full text-gray-500 dark:text-gray-400 transition-colors">
             <PaperPlaneIcon className="h-6 w-6" />
             <span className="text-xs">送信</span>
@@ -412,7 +415,7 @@ export const App = () => {
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 z-30 flex justify-center items-end pointer-events-none" style={{ width: '20%'}}>
            <button
               onClick={() => changePage('DASHBOARD')}
-              className={`w-16 h-16 bg-[#faf8f0] dark:bg-gray-800 border-2 dark:border-gray-600 rounded-full shadow-lg flex items-center justify-center transition-transform pointer-events-auto ${activeTab === 'DASHBOARD' ? 'text-green-600 dark:text-green-400 border-green-500 dark:border-green-500' : 'text-gray-600 dark:text-gray-400 border-stone-200 dark:border-gray-700'}`}
+              className={`w-16 h-16 bg-[#ffe8d1] dark:bg-gray-800 border-2 dark:border-gray-600 rounded-full shadow-lg flex items-center justify-center transition-transform pointer-events-auto ${activeTab === 'DASHBOARD' ? 'text-green-600 dark:text-green-400 border-green-500 dark:border-green-500' : 'text-gray-600 dark:text-gray-400 border-stone-200 dark:border-gray-700'}`}
               aria-label="ホーム"
           >
               <HomeIcon className="h-8 w-8" />
