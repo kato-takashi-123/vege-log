@@ -233,6 +233,7 @@ export const diagnosePlantHealth = async (image: { mimeType: string; data: strin
   const schema = {
     type: Type.OBJECT,
     properties: {
+        plantName: { type: Type.STRING, description: '画像に写っている植物の一般的な名称（例：ミニトマト）。' },
         overallHealth: { type: Type.STRING, description: '植物の全体的な健康状態を「健康的」「注意が必要」「病気の可能性」のいずれかで評価してください。' },
         pestAndDisease: {
             type: Type.OBJECT,
@@ -266,7 +267,7 @@ export const diagnosePlantHealth = async (image: { mimeType: string; data: strin
             required: ['recommendation']
         }
     },
-    required: ['overallHealth', 'pestAndDisease', 'fertilizer', 'watering', 'environment']
+    required: ['plantName', 'overallHealth', 'pestAndDisease', 'fertilizer', 'watering', 'environment']
   };
 
   const prompt = "この野菜の画像から、健康状態を診断してください。以下のJSONスキーマに従って、農薬を使わない持続可能な方法でのアドバイスを生成してください。";

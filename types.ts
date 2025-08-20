@@ -126,6 +126,7 @@ export interface VegetableInfo {
 }
 
 export interface PlantDiagnosis {
+  plantName: string;
   overallHealth: string;
   pestAndDisease: {
     isDetected: boolean;
@@ -153,3 +154,5 @@ export type AppSettings = {
   darkModeContrast: 'normal' | 'high';
   openWeatherApiKey?: string;
 };
+
+export type ApiCallHandler = <T>(apiCall: () => Promise<T>) => Promise<T | undefined>;
