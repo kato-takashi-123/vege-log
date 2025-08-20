@@ -126,14 +126,33 @@ export const App = () => {
   };
 
   const handleSaveRecord = (record: CultivationRecord) => {
-    setRecords(prev => {
-      const existingIndex = prev.findIndex(r => r.id === record.id);
-      if (existingIndex > -1) {
-        const newRecords = [...prev];
-        newRecords[existingIndex] = record;
-        return newRecords;
+    setRecords(prevRecords => {
+      let records = [...prevRecords];
+      const { id, cultivationLane, date } = record;
+
+      // Find indices of records that match by ID or by lane+date
+      const idxById = records.findIndex(r => r.id === id);
+      const idxByLaneDate = records.findIndex(r => r.cultivationLane === cultivationLane && r.date === date);
+
+      if (idxByLaneDate !== -1) {
+        // A record for this lane & date exists. We will overwrite it.
+        // To keep a stable ID for the lane+date pair, we'll use the existing record's ID.
+        const finalRecord = { ...record, id: records[idxByLaneDate].id };
+        records[idxByLaneDate] = finalRecord;
+
+        // If we were editing a different record (IDs don't match), remove the original.
+        if (idxById !== -1 && idxById !== idxByLaneDate) {
+          records.splice(idxById, 1);
+        }
+      } else if (idxById !== -1) {
+        // This is an existing record moved to a new, unoccupied lane+date. Update it.
+        records[idxById] = record;
+      } else {
+        // This is a completely new record for an unoccupied lane+date. Add it.
+        records.push(record);
       }
-      return [...prev, record];
+      
+      return records;
     });
     setPage('DASHBOARD');
     showToast('記録を保存しました！');

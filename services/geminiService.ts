@@ -495,6 +495,12 @@ export const getWeatherInfo = async (location: string, apiKey: string): Promise<
         const currentData = await currentRes.json();
         const forecastData = await forecastRes.json();
 
+        const currentJST = new Date();
+        const todayJSTStr = formatDateInJST(currentJST);
+        const tomorrowJST = new Date(currentJST);
+        tomorrowJST.setDate(currentJST.getDate() + 1);
+        const tomorrowJSTStr = formatDateInJST(tomorrowJST);
+
         // データ変換ロジック
         const weatherInfo: WeatherInfo = {
             location: `${currentData.name}, ${currentData.sys.country}`,
@@ -504,7 +510,7 @@ export const getWeatherInfo = async (location: string, apiKey: string): Promise<
                 humidity: currentData.main.humidity,
                 wbgt: undefined, // OpenWeatherMapはWBGTを提供しない
             },
-            hourly: forecastData.list.slice(0, 16).map((item: any) => { // 48時間分 (3h * 16)
+            hourly: forecastData.list.map((item: any) => {
                 const itemDate = new Date(item.dt * 1000);
                 return {
                     time: itemDate.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', hour12: false }),
@@ -517,7 +523,7 @@ export const getWeatherInfo = async (location: string, apiKey: string): Promise<
                     windSpeed: item.wind?.speed || 0,
                     windDirection: convertWindDirection(item.wind?.deg || 0),
                 }
-            }),
+            }).filter((item:any) => item.date === todayJSTStr || item.date === tomorrowJSTStr),
             weekly: Object.values(
                 forecastData.list.reduce((acc: any, item: any) => {
                     const itemDate = new Date(item.dt * 1000);
