@@ -9,8 +9,41 @@ import { useVoiceRecognition } from '../hooks/useVoiceRecognition';
 import {
   CloseIcon, MicrophoneIcon, CameraIcon, ImageIcon, RefreshIcon, TrashIcon
 } from '../components/Icons';
-import { CalendarModal, ImageSourceModal } from '../components/modals';
-import { ConfirmationModalProps } from '../components/modals';
+import { CalendarModal, ImageSourceModal, ConfirmationModalProps, AiInfoModal } from '../components/modals';
+
+const PackageInfoContent: React.FC<{ packageInfo: PackageInfo }> = ({ packageInfo }) => (
+  <div className="space-y-2 text-gray-700 dark:text-gray-300">
+    {packageInfo.productName && <p><strong className="font-semibold text-gray-900 dark:text-gray-100">商品名:</strong> 【{packageInfo.productName}】</p>}
+    {packageInfo.family && <p><strong className="font-semibold text-gray-900 dark:text-gray-100">科・属名:</strong> {packageInfo.family}</p>}
+    {packageInfo.features && <p><strong className="font-semibold text-gray-900 dark:text-gray-100">特徴:</strong> {packageInfo.features}</p>}
+    
+     <div className="space-y-2 pt-2 mt-2 border-t border-gray-200 dark:border-gray-600">
+          <div className="grid grid-cols-1 gap-y-2">
+            <div>
+              <h5 className="font-bold text-gray-800 dark:text-gray-200 mb-1">栽培時期</h5>
+              <table className="w-full">
+                  <tbody>
+                      {packageInfo.seedlingPeriod && <tr><td className="pr-2 font-medium text-gray-600 dark:text-gray-400">育苗</td><td className="text-gray-900 dark:text-gray-100 text-right">{packageInfo.seedlingPeriod}</td></tr>}
+                      {packageInfo.plantingPeriod && <tr><td className="pr-2 font-medium text-gray-600 dark:text-gray-400">定植</td><td className="text-gray-900 dark:text-gray-100 text-right">{packageInfo.plantingPeriod}</td></tr>}
+                      {packageInfo.harvestTime && <tr><td className="pr-2 font-medium text-gray-600 dark:text-gray-400">収穫</td><td className="text-gray-900 dark:text-gray-100 text-right">{packageInfo.harvestTime}</td></tr>}
+                  </tbody>
+              </table>
+            </div>
+            <div>
+                <h5 className="font-bold text-gray-800 dark:text-gray-200 mb-1">栽培条件</h5>
+                <table className="w-full">
+                    <tbody>
+                        {packageInfo.daysToGermination && <tr><td className="pr-2 font-medium text-gray-600 dark:text-gray-400">発芽日数</td><td className="text-gray-900 dark:text-gray-100 text-right">{packageInfo.daysToGermination}</td></tr>}
+                        {packageInfo.germinationTemp && <tr><td className="pr-2 font-medium text-gray-600 dark:text-gray-400">発芽適温</td><td className="text-gray-900 dark:text-gray-100 text-right">{packageInfo.germinationTemp}</td></tr>}
+                        {packageInfo.growingTemp && <tr><td className="pr-2 font-medium text-gray-600 dark:text-gray-400">生育適温</td><td className="text-gray-900 dark:text-gray-100 text-right">{packageInfo.growingTemp}</td></tr>}
+                    </tbody>
+                </table>
+            </div>
+          </div>
+      </div>
+  </div>
+);
+
 
 export type RecordPageHandle = {
   getRecordData: () => CultivationRecord;
@@ -75,6 +108,7 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
   const [isAnalyzingPackage, setIsAnalyzingPackage] = useState(false);
   const [isSearchingPests, setIsSearchingPests] = useState(false);
   const [modalImage, setModalImage] = useState<string | null>(null);
+  const [aiInfoModal, setAiInfoModal] = useState<{ open: boolean; title: string; content: React.ReactNode } | null>(null);
 
   const memoOcrCameraRef = useRef<HTMLInputElement>(null);
   const memoOcrGalleryRef = useRef<HTMLInputElement>(null);
@@ -431,6 +465,13 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
             </button>
         </div>
     )}
+    <AiInfoModal
+      isOpen={!!aiInfoModal?.open}
+      onClose={() => setAiInfoModal(null)}
+      title={aiInfoModal?.title || ''}
+    >
+      {aiInfoModal?.content}
+    </AiInfoModal>
     <ImageSourceModal
         isOpen={!!imageSourceModal}
         onClose={() => setImageSourceModal(null)}
@@ -536,11 +577,14 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
 
               <div className="w-3/5 bg-lime-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-200 dark:border-gray-600 space-y-2 overflow-y-auto flex flex-col text-sm h-40">
                 {(isAnalyzingPackage || packageInfo) ? (
-                  <div className="space-y-2">
+                  <div 
+                    className="space-y-2 cursor-pointer"
+                    onClick={() => packageInfo && setAiInfoModal({ open: true, title: 'AIパッケージ解析結果', content: <div className="text-sm"><PackageInfoContent packageInfo={packageInfo} /></div> })}
+                  >
                      <div className="flex justify-between items-center">
                         <h4 className="font-bold text-green-800 dark:text-green-300">AIパッケージ解析結果</h4>
                         {isAnalyzingPackage && (
-                            <button onClick={handleStopAnalysis} className="text-xs bg-red-100 text-red-700 font-semibold px-2 py-1 rounded-md hover:bg-red-200 transition-colors">
+                            <button onClick={(e) => { e.stopPropagation(); handleStopAnalysis(); }} className="text-xs bg-red-100 text-red-700 font-semibold px-2 py-1 rounded-md hover:bg-red-200 transition-colors">
                               停止
                             </button>
                         )}
@@ -551,46 +595,26 @@ const RecordPage = forwardRef<RecordPageHandle, RecordPageProps>(({ onSaveRecord
                           <span>解析中...</span>
                       </div>
                     ) : packageInfo ? (
-                      <div className="space-y-4 text-xs text-gray-700 dark:text-gray-300">
-                          {packageInfo.productName && <p><strong className="font-semibold text-gray-900 dark:text-gray-100">商品名:</strong> 【{packageInfo.productName}】</p>}
-                          {packageInfo.family && <p><strong className="font-semibold text-gray-900 dark:text-gray-100">科・属名:</strong> {packageInfo.family}</p>}
-                          {packageInfo.features && <p><strong className="font-semibold text-gray-900 dark:text-gray-100">特徴:</strong> {packageInfo.features}</p>}
-                          
-                           <div className="space-y-2 pt-2 mt-2 border-t border-gray-200 dark:border-gray-600">
-                                <div className="grid grid-cols-1 gap-y-2">
-                                  <div>
-                                    <h5 className="font-bold text-gray-800 dark:text-gray-200 text-xs mb-1">栽培時期</h5>
-                                    <table className="w-full text-xs">
-                                        <tbody>
-                                            {packageInfo.seedlingPeriod && <tr><td className="pr-2 font-medium text-gray-600 dark:text-gray-400">育苗</td><td className="text-gray-900 dark:text-gray-100 text-right">{packageInfo.seedlingPeriod}</td></tr>}
-                                            {packageInfo.plantingPeriod && <tr><td className="pr-2 font-medium text-gray-600 dark:text-gray-400">定植</td><td className="text-gray-900 dark:text-gray-100 text-right">{packageInfo.plantingPeriod}</td></tr>}
-                                            {packageInfo.harvestTime && <tr><td className="pr-2 font-medium text-gray-600 dark:text-gray-400">収穫</td><td className="text-gray-900 dark:text-gray-100 text-right">{packageInfo.harvestTime}</td></tr>}
-                                        </tbody>
-                                    </table>
-                                  </div>
-                                  <div>
-                                      <h5 className="font-bold text-gray-800 dark:text-gray-200 text-xs mb-1">栽培条件</h5>
-                                      <table className="w-full text-xs">
-                                          <tbody>
-                                              {packageInfo.daysToGermination && <tr><td className="pr-2 font-medium text-gray-600 dark:text-gray-400">発芽日数</td><td className="text-gray-900 dark:text-gray-100 text-right">{packageInfo.daysToGermination}</td></tr>}
-                                              {packageInfo.germinationTemp && <tr><td className="pr-2 font-medium text-gray-600 dark:text-gray-400">発芽適温</td><td className="text-gray-900 dark:text-gray-100 text-right">{packageInfo.germinationTemp}</td></tr>}
-                                              {packageInfo.growingTemp && <tr><td className="pr-2 font-medium text-gray-600 dark:text-gray-400">生育適温</td><td className="text-gray-900 dark:text-gray-100 text-right">{packageInfo.growingTemp}</td></tr>}
-                                          </tbody>
-                                      </table>
-                                  </div>
-                                </div>
-                            </div>
+                      <div className="text-xs">
+                        <PackageInfoContent packageInfo={packageInfo} />
                       </div>
                     ) : null}
                   </div>
                 ) : null}
 
                 {(isSearchingPests || (pestInfo && pestInfo.length > 0)) ? (
-                  <div className="space-y-2 pt-2 mt-2 border-t border-gray-200 dark:border-gray-600">
+                  <div 
+                    className="space-y-2 pt-2 mt-2 border-t border-gray-200 dark:border-gray-600 cursor-pointer"
+                    onClick={() => pestInfo && setAiInfoModal({ open: true, title: '注意すべき病害虫', content: (
+                      <ul className="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                        {pestInfo.map((pest, index) => <li key={index}>{pest}</li>)}
+                      </ul>
+                    )})}
+                  >
                     <div className="flex justify-between items-center">
                         <h4 className="font-bold text-red-800 dark:text-red-300">注意すべき病害虫</h4>
                         {isSearchingPests && (
-                            <button onClick={handleStopAnalysis} className="text-xs bg-red-100 text-red-700 font-semibold px-2 py-1 rounded-md hover:bg-red-200 transition-colors">
+                            <button onClick={(e) => { e.stopPropagation(); handleStopAnalysis(); }} className="text-xs bg-red-100 text-red-700 font-semibold px-2 py-1 rounded-md hover:bg-red-200 transition-colors">
                               停止
                             </button>
                         )}

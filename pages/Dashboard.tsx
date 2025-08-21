@@ -18,6 +18,7 @@ const Dashboard: React.FC<DashboardProps> = ({ records, onLaneClick, settings, h
   
   const today = new Date();
   const formattedDate = `${today.toLocaleDateString()} (${['日', '月', '火', '水', '木', '金', '土'][today.getDay()]})`;
+  const todayISO = toISODateString(today);
 
   const fetchQuote = useCallback(async (forceRefresh = false) => {
     if (!settings.enableAiFeatures) {
@@ -71,7 +72,7 @@ const Dashboard: React.FC<DashboardProps> = ({ records, onLaneClick, settings, h
       <div className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-md border border-green-200 dark:border-green-800">
         <div className="flex justify-between items-start">
             <div className="flex-grow pr-2">
-                <h3 className="font-semibold text-green-800 dark:text-green-300 mb-1">今日の一言</h3>
+                <h3 className="font-semibold text-green-800 dark:text-green-300 mb-1">{settings.dailyQuoteTheme.trim() || '今日は何の日？'}</h3>
                 <p className="text-gray-600 dark:text-gray-400 italic text-base leading-tight h-10 overflow-hidden">
                     {tip}
                 </p>
@@ -95,11 +96,13 @@ const Dashboard: React.FC<DashboardProps> = ({ records, onLaneClick, settings, h
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {CULTIVATION_LANES.map((lane, index) => {
             const current = laneStatus[lane];
+            const todaysRecord = records.find(r => r.cultivationLane === lane && r.date === todayISO);
+
             const cardColor = PASTEL_COLORS[index % PASTEL_COLORS.length];
-            const recordDataForClick: Partial<CultivationRecord> = {
+            const recordDataForClick: Partial<CultivationRecord> = todaysRecord || {
                 cultivationLane: lane,
                 cropName: current?.cropName || '',
-                date: toISODateString(new Date()),
+                date: todayISO,
                 seedPackagePhotoFront: current?.seedPackagePhotoFront,
                 seedPackagePhotoBack: current?.seedPackagePhotoBack,
                 aiPackageAnalysis: current?.aiPackageAnalysis,

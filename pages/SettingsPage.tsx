@@ -59,7 +59,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange,
             <input type="checkbox" id="enable-ai" checked={localSettings.enableAiFeatures} onChange={e => handleSettingsChange({ enableAiFeatures: e.target.checked })} className="h-6 w-11 rounded-full bg-gray-200 after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all checked:bg-green-600 checked:after:translate-x-full focus:ring-0" />
           </div>
           <div>
-            <label htmlFor="quote-theme" className="block text-sm font-medium text-gray-700 dark:text-gray-300">「今日の一言」のテーマ</label>
+            <label htmlFor="quote-theme" className="block text-sm font-medium text-gray-700 dark:text-gray-300">「AIのつぶやき」のテーマ</label>
             <input 
               type="text"
               id="quote-theme"

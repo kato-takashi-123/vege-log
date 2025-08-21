@@ -5,7 +5,7 @@ import { CultivationRecord, AppSettings, ApiCallHandler } from './types';
 import { ApiRateLimitError } from './services/geminiService';
 import { SETTINGS_KEY } from './lib/constants';
 import { idbGet, idbSet, idbClear } from './lib/indexedDB';
-import { toISODateString, parseDateString } from './lib/utils';
+import { toISODateString, parseDateString, exportRecordsToCsv } from './lib/utils';
 
 // Import pages
 import LoginPage from './pages/LoginPage';
@@ -306,6 +306,87 @@ export const App = () => {
     showToast("すべての記録をエクスポートしました。");
   };
 
+  const handleEmailExport = (range: string, startDateStr?: string, endDateStr?: string) => {
+    if (records.length === 0) {
+        alert("エクスポート対象の記録がありません。");
+        return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let startDate: Date;
+    let endDate: Date;
+    let filteredRecords: CultivationRecord[];
+
+    switch (range) {
+        case 'today':
+            startDate = today;
+            endDate = today;
+            break;
+        case 'thisWeek': {
+            const dayOfWeek = today.getDay(); // 0 = Sunday
+            const weekStartsOn = settings.startOfWeek === 'sunday' ? 0 : 1;
+            startDate = new Date(today);
+            const diff = (dayOfWeek - weekStartsOn + 7) % 7;
+            startDate.setDate(startDate.getDate() - diff);
+            endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + 6);
+            break;
+        }
+        case 'thisMonth':
+            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            break;
+        case 'lastMonth':
+            startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+            break;
+        case 'custom':
+            if (!startDateStr || !endDateStr) {
+                alert("期間を指定してください。");
+                return;
+            }
+            startDate = parseDateString(startDateStr);
+            endDate = parseDateString(endDateStr);
+            break;
+        case 'all':
+        default:
+            filteredRecords = records;
+            break;
+    }
+
+    if (range !== 'all') {
+         filteredRecords = records.filter(r => {
+            const recordDate = parseDateString(r.date);
+            return recordDate >= startDate && recordDate <= endDate;
+        });
+    }
+    
+    if (filteredRecords.length === 0) {
+        alert("選択された期間にエクスポート対象の記録がありません。");
+        return;
+    }
+
+    const csvData = exportRecordsToCsv(filteredRecords);
+    const teamName = settings.teamName || 'ベジログ';
+    const subject = `${teamName} 栽培記録のエクスポート (${toISODateString(new Date())})`;
+    
+    const body = `こんにちは。\n\n${teamName}の栽培記録をCSV形式でお送りします。\n\n---\n\n${csvData}`;
+    
+    const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    try {
+        window.location.href = mailtoLink;
+    } catch (e) {
+        console.error("Failed to open mail client", e);
+        alert("メールクライアントの起動に失敗しました。リンクが長すぎる可能性があります。");
+    }
+    
+    setExportModal({isOpen: false, mode: 'email'});
+    showToast('メールアプリを起動します。');
+  };
+
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -466,7 +547,7 @@ export const App = () => {
         isOpen={exportModal.isOpen}
         mode={exportModal.mode}
         onClose={() => setExportModal(prev => ({...prev, isOpen: false}))}
-        onExport={() => alert("この機能は現在CSVエクスポートのみ対応しています。")}
+        onExport={handleEmailExport}
       />
       
       <ApiErrorModal
