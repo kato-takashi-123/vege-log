@@ -1,0 +1,21 @@
+{
+  "name": "ベジログ - 栽培記録アプリ",
+  "short_name": "ベジログ",
+  "description": "種まきから収穫までの野菜栽培活動を記録するための、シンプルで直感的なウェブアプリケーションです。",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7fee7",
+  "theme_color": "#84cc16",
+  "icons": [
+    {
+      "src": "/assets/icons/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/assets/icons/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}

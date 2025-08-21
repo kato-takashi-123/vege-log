@@ -1,12 +1,11 @@
-
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { PestInfo, AppSettings, CultivationRecord } from '../types';
 import { searchPestInfo } from '../services/geminiService';
 import { useVoiceRecognition } from '../hooks/useVoiceRecognition';
 import { fileToGenerativePart } from '../lib/utils';
 import { FormattedContent } from '../components/common/FormattedContent';
 import { ImageSourceModal } from '../components/modals';
-import { CameraIcon, MicrophoneIcon, CloseIcon } from '../components/Icons';
+import { CameraIcon, MicrophoneIcon, CloseIcon, CopyIcon, CheckIcon } from '../components/Icons';
 import { ApiCallHandler } from '../types';
 
 type PageProps = {
@@ -25,16 +24,28 @@ const PestSearchPage: React.FC<PageProps> = ({ handleApiCall }) => {
   const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const shouldAutoSearch = useRef(false);
+  const [isCopied, setIsCopied] = useState(false);
   
   const { isListening, startListening } = useVoiceRecognition({ onResult: setQuery });
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImage({ file, preview: URL.createObjectURL(file) });
+      setResult(null);
+      shouldAutoSearch.current = true;
+    }
+    if (e.target) e.target.value = '';
+  };
+
+  const handleGallerySelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setImage({ file, preview: URL.createObjectURL(file) });
       setResult(null);
     }
-    e.target.value = '';
+    if (e.target) e.target.value = '';
   };
   
   const handleSourceSelect = (source: 'camera' | 'gallery') => {
@@ -62,6 +73,32 @@ const PestSearchPage: React.FC<PageProps> = ({ handleApiCall }) => {
     }
   }, [query, image, handleApiCall]);
 
+  useEffect(() => {
+    if (image && shouldAutoSearch.current) {
+        handleSearch();
+        shouldAutoSearch.current = false; // Reset the flag
+    }
+  }, [image, handleSearch]);
+
+  const handleCopy = useCallback(() => {
+    if (!result) return;
+    
+    const textToCopy = `${result.pestName}\n\n`
+      + `概要\n`
+      + `特徴: ${result.summary.characteristics}\n`
+      + `原因: ${result.summary.causes}\n`
+      + `対策: ${result.summary.countermeasures}\n\n`
+      + `詳細情報\n`
+      + `特徴: ${result.details.characteristics}\n`
+      + `原因: ${result.details.causes}\n`
+      + `対策: ${result.details.countermeasures}`;
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    });
+  }, [result]);
+
   const SummaryCard: React.FC<{title: string; content: string}> = ({title, content}) => (
     <div className="bg-lime-50 dark:bg-lime-900/30 p-3 rounded-lg">
       <h4 className="font-bold text-lime-800 dark:text-lime-300 text-sm">{title}</h4>
@@ -76,8 +113,8 @@ const PestSearchPage: React.FC<PageProps> = ({ handleApiCall }) => {
         onClose={() => setIsSourceModalOpen(false)}
         onSelect={handleSourceSelect}
       />
-      <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={handleImageChange} className="hidden" />
-      <input type="file" accept="image/*" ref={galleryInputRef} onChange={handleImageChange} className="hidden" />
+      <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={handleCameraCapture} className="hidden" />
+      <input type="file" accept="image/*" ref={galleryInputRef} onChange={handleGallerySelect} className="hidden" />
 
       <div className="p-4 space-y-4">
         <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md space-y-3">
@@ -102,7 +139,10 @@ const PestSearchPage: React.FC<PageProps> = ({ handleApiCall }) => {
         {isLoading && <div className="text-center p-4">AIが診断しています...</div>}
 
         {result && (
-          <div className="space-y-4 fade-in">
+          <div className="space-y-4 fade-in relative">
+            <button onClick={handleCopy} className="absolute top-0 right-0 z-10 p-2 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors" title="結果をコピー">
+                {isCopied ? <CheckIcon className="h-5 w-5 text-green-600" /> : <CopyIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />}
+            </button>
             <h2 className="text-2xl font-bold text-center text-red-800 dark:text-red-300">{result.pestName}</h2>
             <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md space-y-2">
               <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-2">概要</h3>

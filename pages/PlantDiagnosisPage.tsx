@@ -1,11 +1,9 @@
-
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { PlantDiagnosis, AppSettings, CultivationRecord } from '../types';
 import { diagnosePlantHealth } from '../services/geminiService';
 import { fileToGenerativePart } from '../lib/utils';
 import { FormattedContent } from '../components/common/FormattedContent';
-import { CameraIcon, ImageIcon, ObservationIcon, LeafIcon, PestControlIcon, FertilizingIcon, WateringIcon, WeatherIcon, VegetableSearchIcon } from '../components/Icons';
+import { CameraIcon, ImageIcon, ObservationIcon, LeafIcon, PestControlIcon, FertilizingIcon, WateringIcon, WeatherIcon, VegetableSearchIcon, CopyIcon, CheckIcon } from '../components/Icons';
 import { ApiCallHandler } from '../types';
 
 type PageProps = {
@@ -23,6 +21,7 @@ const PlantDiagnosisPage: React.FC<PageProps> = ({ handleApiCall, pageParams, se
   const [result, setResult] = useState<PlantDiagnosis | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const [isCopied, setIsCopied] = useState(false);
   
   const shouldAutoDiagnose = useRef(false);
 
@@ -58,13 +57,39 @@ const PlantDiagnosisPage: React.FC<PageProps> = ({ handleApiCall, pageParams, se
     }
   }, [image, handleDiagnose]);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImage({ file, preview: URL.createObjectURL(file) });
+      setResult(null);
+      shouldAutoDiagnose.current = true;
+    }
+    if (e.target) e.target.value = '';
+  };
+
+  const handleGallerySelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setImage({ file, preview: URL.createObjectURL(file) });
       setResult(null);
     }
-    e.target.value = '';
+    if (e.target) e.target.value = '';
+  };
+
+  const handleCopy = () => {
+    if (!result) return;
+    
+    const textToCopy = `診断対象の作物: ${result.plantName}\n\n`
+      + `総合評価: ${result.overallHealth}\n\n`
+      + `病害虫の診断\n状況: ${result.pestAndDisease.details}\n対策: ${result.pestAndDisease.countermeasures}\n\n`
+      + `液肥のアドバイス\n${result.fertilizer.recommendation}\n\n`
+      + `水やりのアドバイス\n状況: ${result.watering.status}\nアドバイス: ${result.watering.recommendation}\n\n`
+      + `環境のアドバイス\n${result.environment.recommendation}`;
+      
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    });
   };
 
   const DiagnosisCard: React.FC<{ title: string; children: React.ReactNode; icon: React.FC<{className?: string}> }> = ({ title, children, icon: Icon }) => (
@@ -79,8 +104,8 @@ const PlantDiagnosisPage: React.FC<PageProps> = ({ handleApiCall, pageParams, se
 
   return (
     <>
-      <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={handleImageChange} className="hidden" />
-      <input type="file" accept="image/*" ref={galleryInputRef} onChange={handleImageChange} className="hidden" />
+      <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={handleCameraCapture} className="hidden" />
+      <input type="file" accept="image/*" ref={galleryInputRef} onChange={handleGallerySelect} className="hidden" />
       
       <div className="p-4 space-y-4">
         <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md space-y-3">
@@ -137,7 +162,10 @@ const PlantDiagnosisPage: React.FC<PageProps> = ({ handleApiCall, pageParams, se
         </div>
         
         {result && (
-          <div className="space-y-4 fade-in">
+          <div className="space-y-4 fade-in relative">
+             <button onClick={handleCopy} className="absolute top-0 right-0 z-10 p-2 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors" title="結果をコピー">
+                {isCopied ? <CheckIcon className="h-5 w-5 text-green-600" /> : <CopyIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />}
+            </button>
             <DiagnosisCard title="診断対象の作物" icon={VegetableSearchIcon}>
               <p className="font-bold text-lg text-gray-800 dark:text-gray-200">{result.plantName}</p>
             </DiagnosisCard>

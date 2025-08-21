@@ -1,10 +1,9 @@
-
 import React, { useState, useCallback, useMemo } from 'react';
 import { CultivationRecord, VegetableInfo, AppSettings } from '../types';
 import { getVegetableInfo } from '../services/geminiService';
 import { useVoiceRecognition } from '../hooks/useVoiceRecognition';
 import { FormattedContent } from '../components/common/FormattedContent';
-import { MicrophoneIcon } from '../components/Icons';
+import { MicrophoneIcon, CopyIcon, CheckIcon } from '../components/Icons';
 import { ApiCallHandler } from '../types';
 
 type PageProps = {
@@ -19,6 +18,7 @@ const VegetableSearchPage: React.FC<PageProps> = ({ handleApiCall, records }) =>
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<VegetableInfo | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
 
   const { isListening, startListening } = useVoiceRecognition({ onResult: setQuery });
 
@@ -41,6 +41,28 @@ const VegetableSearchPage: React.FC<PageProps> = ({ handleApiCall, records }) =>
       setIsLoading(false);
     }
   }, [handleApiCall]);
+
+  const handleCopy = useCallback(() => {
+    if (!result) return;
+    
+    const textToCopy = `${result.vegetableName} の育て方\n\n`
+      + `栽培ごよみ\n`
+      + `  種まき: ${result.cultivationCalendar.seeding}\n`
+      + `  植え付け: ${result.cultivationCalendar.planting}\n`
+      + `  収穫: ${result.cultivationCalendar.harvest}\n\n`
+      + `施肥計画 (M-plus)\n`
+      + `  元肥: ${result.fertilizationPlan.baseFertilizer}\n\n`
+      + `  追肥: ${result.fertilizationPlan.topDressing}\n\n`
+      + `栽培のコツ\n`
+      + `- ${result.cultivationTips.join('\n- ')}\n\n`
+      + `主な病害虫と対策\n`
+      + `- ${result.pestControl.join('\n- ')}`;
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    });
+  }, [result]);
   
   const handleCropButtonClick = (cropName: string) => {
     setQuery(cropName);
@@ -87,7 +109,10 @@ const VegetableSearchPage: React.FC<PageProps> = ({ handleApiCall, records }) =>
       {isLoading && <div className="text-center p-4">AIが育て方を調べています...</div>}
       
       {result && (
-        <div className="space-y-4 fade-in">
+        <div className="space-y-4 fade-in relative">
+          <button onClick={handleCopy} className="absolute top-0 right-0 z-10 p-2 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors" title="結果をコピー">
+              {isCopied ? <CheckIcon className="h-5 w-5 text-green-600" /> : <CopyIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />}
+          </button>
           <h2 className="text-2xl font-bold text-center text-gray-800 dark:text-gray-200">{result.vegetableName} の育て方</h2>
           <InfoSection title="栽培ごよみ">
             <p><strong>種まき:</strong> {result.cultivationCalendar.seeding}</p>

@@ -71,7 +71,8 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "NO_KEY" });
 
 export const getDailyQuote = async (theme: string, forceRefresh = false): Promise<string> => {
   const cacheKey = 'dailyQuoteCache';
-  const today = new Date().toISOString().split('T')[0];
+  const todayDate = new Date();
+  const today = todayDate.toISOString().split('T')[0];
   const effectiveTheme = theme.trim() || '今日は何の日？';
 
   if (!forceRefresh) {
@@ -89,11 +90,20 @@ export const getDailyQuote = async (theme: string, forceRefresh = false): Promis
     }
   }
 
+  let prompt: string;
+  if (effectiveTheme === '今日は何の日？') {
+    const month = todayDate.getMonth() + 1;
+    const day = todayDate.getDate();
+    prompt = `今日は${month}月${day}日です。この日にまつわる面白い記念日や、過去の出来事に関する簡潔な一言知識を、事実や史実に基づいて教えてください。`;
+  } else {
+    prompt = `「${effectiveTheme}」というテーマについて調べ、面白くて簡潔な一言知識を教えてください。`;
+  }
+
   const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
     model: 'gemini-2.5-flash',
-    contents: `「${effectiveTheme}」というテーマについて調べ、面白くて簡潔な一言知識を教えてください。`,
+    contents: prompt,
     config: {
-      systemInstruction: "あなたは知識豊富なアシスタントです。与えられたテーマについて、簡潔で興味深い事実を一つだけ、最大でも50文字程度で回答してください。",
+      systemInstruction: "あなたは知識豊富なアシスタントです。与えられたテーマについて、簡潔で興味深い事実を一つだけ、最大でも50文字程度で回答してください。事実に基づいた正確な情報を提供してください。",
       temperature: 0.7,
       thinkingConfig: { thinkingBudget: 0 }
     }

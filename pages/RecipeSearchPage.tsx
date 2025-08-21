@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { CultivationRecord, AppSettings } from '../types';
 import { searchRecipes, generateRecipeImage, identifyVegetableFromImage } from '../services/geminiService';
@@ -6,7 +5,7 @@ import { useVoiceRecognition } from '../hooks/useVoiceRecognition';
 import { fileToGenerativePart } from '../lib/utils';
 import { FormattedContent } from '../components/common/FormattedContent';
 import { ImageSourceModal } from '../components/modals';
-import { CameraIcon, MicrophoneIcon, CloseIcon, ExternalLinkIcon } from '../components/Icons';
+import { CameraIcon, MicrophoneIcon, CloseIcon, ExternalLinkIcon, CopyIcon, CheckIcon } from '../components/Icons';
 import { ApiCallHandler } from '../types';
 
 type PageProps = {
@@ -26,6 +25,7 @@ const RecipeSearchPage: React.FC<PageProps> = ({ handleApiCall, records }) => {
   const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const [copiedStates, setCopiedStates] = useState<Record<number, boolean>>({});
 
   const { isListening, startListening } = useVoiceRecognition({ onResult: setQuery });
 
@@ -119,6 +119,22 @@ const RecipeSearchPage: React.FC<PageProps> = ({ handleApiCall, records }) => {
     handleSearch(cropName);
   };
 
+  const handleCopy = (recipe: any, index: number) => {
+    const link = `https://www.google.com/search?q=${encodeURIComponent(recipe.recipeName + " レシピ")}`;
+    const textToCopy = `レシピ名: ${recipe.recipeName}\n\n`
+      + `説明: ${recipe.description}\n\n`
+      + `主な材料:\n- ${recipe.ingredients.join('\n- ')}\n\n`
+      + `作り方の要約:\n${recipe.instructionsSummary}\n\n`
+      + `Webで詳細を見る:\n${link}`;
+      
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      setCopiedStates(prev => ({ ...prev, [index]: true }));
+      setTimeout(() => {
+        setCopiedStates(prev => ({ ...prev, [index]: false }));
+      }, 2000);
+    });
+  };
+
   return (
     <>
       <ImageSourceModal
@@ -182,7 +198,10 @@ const RecipeSearchPage: React.FC<PageProps> = ({ handleApiCall, records }) => {
 
         <div className="space-y-4">
           {recipes.map((recipe, index) => (
-            <div key={index} className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden">
+            <div key={index} className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden relative">
+               <button onClick={() => handleCopy(recipe, index)} className="absolute top-2 right-2 z-10 p-2 bg-black/30 rounded-full hover:bg-black/50 transition-colors" title="レシピをコピー">
+                {copiedStates[index] ? <CheckIcon className="h-5 w-5 text-green-400" /> : <CopyIcon className="h-5 w-5 text-white" />}
+              </button>
               <div className="h-40 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
                 {imageUrls[index] ? (
                   <img src={imageUrls[index]} alt={recipe.recipeName} className="w-full h-full object-cover" />
