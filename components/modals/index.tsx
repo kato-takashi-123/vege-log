@@ -247,7 +247,7 @@ export const ExportModal: React.FC<{
   const modalTexts = {
       email: {
           title: 'メールで記録を送信',
-          description: '送信する記録の期間を選択してください。記録がCSV形式でメール本文に挿入されます。',
+          description: '送信する記録の期間を選択してください。CSVファイルをダウンロードした後、メールアプリが起動しますので、ファイルを添付して送信してください。',
           button: '送信準備',
       },
       download: {

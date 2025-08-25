@@ -14,6 +14,13 @@ export class ApiRateLimitError extends Error {
   }
 }
 
+export class OpenWeatherMapApiKeyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'OpenWeatherMapApiKeyError';
+  }
+}
+
 // --- Retry Helper ---
 const withRetry = async <T>(apiCall: () => Promise<T>, options: { retries?: number; delay?: number } = {}): Promise<T> => {
   const { retries = 3, delay = 2000 } = options;
@@ -546,6 +553,10 @@ export const getWeatherInfo = async (location: string, apiKey: string): Promise<
             fetch(`${OWM_API_ENDPOINT}/weather?q=${location}&appid=${apiKey}&units=metric&lang=ja`),
             fetch(`${OWM_API_ENDPOINT}/forecast?q=${location}&appid=${apiKey}&units=metric&lang=ja`),
         ]);
+
+        if (currentRes.status === 401 || forecastRes.status === 401) {
+            throw new OpenWeatherMapApiKeyError("OpenWeatherMap APIキーが無効です。設定ページでキーを確認してください。");
+        }
 
         if (!currentRes.ok) {
             const errorData = await currentRes.json();

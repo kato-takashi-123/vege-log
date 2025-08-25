@@ -126,7 +126,7 @@ const Dashboard: React.FC<DashboardProps> = ({ records, onLaneClick, settings, h
                     </div>
                 </div>
                 
-                <div className="w-1/2 flex items-center justify-center bg-black/5 dark:bg-black/20 rounded-r-xl py-2 px-1">
+                <div className="w-1/2 flex items-center justify-center rounded-r-xl py-2 px-1">
                   {current ? (
                       (current.photoBase64 || current.seedPackagePhotoFront) ? (
                           <img src={current.photoBase64 || current.seedPackagePhotoFront} alt={current.cropName} className="max-w-full max-h-full object-contain" />

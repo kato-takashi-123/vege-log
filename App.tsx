@@ -372,23 +372,34 @@ export const App = () => {
         return;
     }
 
-    const csvData = exportRecordsToCsv(filteredRecords);
+    // 1. Generate CSV and trigger download
+    const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(exportRecordsToCsv(filteredRecords));
+    const link = document.createElement("a");
+    link.setAttribute("href", csvContent);
+    const fileName = `veggielog_export_${toISODateString(new Date())}.csv`;
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // 2. Prepare and open mailto link
     const teamName = settings.teamName || 'ベジログ';
     const subject = `${teamName} 栽培記録のエクスポート (${toISODateString(new Date())})`;
-    
-    const body = `こんにちは。\n\n${teamName}の栽培記録をCSV形式でお送りします。\n\n---\n\n${csvData}`;
-    
+    const body = `こんにちは。\n\n${teamName}の栽培記録をお送りします。\n\n先ほどダウンロードされたCSVファイル（${fileName}）を、このメールに添付して送信してください。`;
     const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
-    try {
-        window.location.href = mailtoLink;
-    } catch (e) {
-        console.error("Failed to open mail client", e);
-        alert("メールクライアントの起動に失敗しました。リンクが長すぎる可能性があります。");
-    }
+    // Give a slight delay for the download to start before opening the mail client.
+    setTimeout(() => {
+        try {
+            window.location.href = mailtoLink;
+        } catch (e) {
+            console.error("Failed to open mail client", e);
+            alert("メールクライアントの起動に失敗しました。");
+        }
+    }, 500);
     
     setExportModal({isOpen: false, mode: 'email'});
-    showToast('メールアプリを起動します。');
+    showToast('ファイルをダウンロードし、メールアプリを起動します。');
   };
 
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {

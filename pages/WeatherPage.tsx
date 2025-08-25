@@ -1,8 +1,10 @@
 
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { WeatherInfo, AppSettings, CultivationRecord, ApiCallHandler } from '../types';
-import { getWeatherInfo } from '../services/geminiService';
+import { getWeatherInfo, OpenWeatherMapApiKeyError } from '../services/geminiService';
 import { parseDateString, getDayInfo, toISODateString } from '../lib/utils';
 
 type PageProps = {
@@ -48,7 +50,11 @@ const WeatherPage: React.FC<PageProps> = ({ settings }) => {
                 }
             } catch (e: any) {
                 console.error(`Failed to fetch weather for ${location}`, e);
-                setError(e.message || `「${location}」の天気情報の取得に失敗しました。`);
+                if (e instanceof OpenWeatherMapApiKeyError) {
+                    setError(e.message);
+                } else {
+                    setError(e.message || `「${location}」の天気情報の取得に失敗しました。`);
+                }
             } finally {
                 setIsLoading(false);
             }
@@ -94,7 +100,7 @@ const WeatherPage: React.FC<PageProps> = ({ settings }) => {
     const colWidth = 64; // in pixels
     const rowHeaderWidth = 68; // in pixels
 
-    const tempChartHeight = 60;
+    const tempChartHeight = 180; // in pixels
 
     const { points, pathData } = useMemo(() => {
         if (hourlyData.length === 0) return { points: [], pathData: '' };
@@ -102,7 +108,7 @@ const WeatherPage: React.FC<PageProps> = ({ settings }) => {
         const maxTemp = Math.ceil(Math.max(...temps));
         const minTemp = Math.floor(Math.min(...temps));
         const tempRange = maxTemp - minTemp || 1;
-        const paddingY = 5;
+        const paddingY = 10;
         const chartAreaHeight = tempChartHeight - 2 * paddingY;
 
         const pointsArr = hourlyData.map((hour, i) => {
@@ -112,7 +118,7 @@ const WeatherPage: React.FC<PageProps> = ({ settings }) => {
         
         const path = pointsArr.map((p, i) => (i === 0 ? 'M' : 'L') + `${p.x} ${p.y}`).join(' ');
         return { points: pointsArr, pathData: path };
-    }, [hourlyData]);
+    }, [hourlyData, tempChartHeight]);
     
     const maxPrecipitation = useMemo(() => Math.max(...hourlyData.map(h => h.precipitation), 0.1), [hourlyData]);
 
@@ -214,9 +220,9 @@ const WeatherPage: React.FC<PageProps> = ({ settings }) => {
                             {/* Precipitation Bar Row */}
                             <RowHeader>降水量</RowHeader>
                             {hourlyData.map((hour, i) => {
-                                const precipBarHeight = (hour.precipitation / maxPrecipitation) * 20;
+                                const precipBarHeight = (hour.precipitation / maxPrecipitation) * 40;
                                 return (
-                                    <div key={i} className="h-6 flex items-center justify-center">
+                                    <div key={i} className="h-10 flex items-center justify-center">
                                          <div className="h-full flex flex-col items-center justify-end">
                                             <div style={{ height: `${precipBarHeight}px`, minHeight: '1px', width: '10px' }} className={`bg-blue-400 rounded-t-sm ${hour.precipitation > 0 ? 'visible' : 'invisible'}`}></div>
                                         </div>
