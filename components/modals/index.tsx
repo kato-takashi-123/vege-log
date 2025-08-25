@@ -199,27 +199,37 @@ export const CalendarModal: React.FC<{
 export const ExportModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-  onExport: (range: string, startDate?: string, endDate?: string) => void;
+  onExport: (range: string, startDate?: string, endDate?: string) => string | null;
+  onLaunchMailer: (fileName: string) => void;
   mode: 'email' | 'download';
-}> = ({ isOpen, onClose, onExport, mode }) => {
+}> = ({ isOpen, onClose, onExport, onLaunchMailer, mode }) => {
   const [range, setRange] = useState('thisMonth');
   const [startDate, setStartDate] = useState(toISODateString(new Date()));
   const [endDate, setEndDate] = useState(toISODateString(new Date()));
+  const [step, setStep] = useState<'initial' | 'downloaded'>('initial');
+  const [fileName, setFileName] = useState<string>('');
 
   useEffect(() => {
     if (isOpen) {
+      setStep('initial');
+      setFileName('');
       const today = new Date();
       const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
       
       if (mode === 'download') {
         setRange('all');
-      } else { // email
+      } else {
         setRange('thisMonth');
         setStartDate(toISODateString(thisMonthStart));
         setEndDate(toISODateString(today));
       }
     }
   }, [isOpen, mode]);
+
+  const handleCloseAndReset = () => {
+    setStep('initial');
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -233,83 +243,101 @@ export const ExportModal: React.FC<{
   ];
   
   const handleExportClick = () => {
-    if (range === 'custom') {
-      if (startDate > endDate) {
-        alert("開始日は終了日より前に設定してください。");
-        return;
+    if (range === 'custom' && startDate > endDate) {
+      alert("開始日は終了日より前に設定してください。");
+      return;
+    }
+    const resultFileName = onExport(range, startDate, endDate);
+    if (mode === 'email') {
+      if (resultFileName) {
+        setFileName(resultFileName);
+        setStep('downloaded');
       }
-      onExport(range, startDate, endDate);
     } else {
-      onExport(range);
+      if (resultFileName) {
+        onClose();
+      }
     }
   };
-  
-  const modalTexts = {
-      email: {
-          title: 'メールで記録を送信',
-          description: '送信する記録の期間を選択してください。CSVファイルをダウンロードした後、メールアプリが起動しますので、ファイルを添付して送信してください。',
-          button: '送信準備',
-      },
-      download: {
-          title: '記録をエクスポート',
-          description: 'エクスポートする記録の期間を選択してください。CSVファイルがダウンロードされます。',
-          button: 'エクスポート'
-      }
+
+  const handleLaunchMailerClick = () => {
+    onLaunchMailer(fileName);
+    handleCloseAndReset();
   };
-  const texts = modalTexts[mode];
-
+  
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onClick={handleCloseAndReset}>
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
-        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 text-center">{texts.title}</h3>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 text-center">{texts.description}</p>
-        
-        <div className="mt-6 text-left space-y-2 max-h-64 overflow-y-auto pr-2">
-          {ranges.map(r => (
-            <div key={r.value}>
-              <label className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
-                <input 
-                  type="radio" 
-                  name="export-range" 
-                  value={r.value}
-                  checked={range === r.value}
-                  onChange={() => setRange(r.value)}
-                  className="h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300"
-                />
-                <span className="text-base text-gray-700 dark:text-gray-200 font-medium">{r.label}</span>
-              </label>
-              {range === 'custom' && r.value === 'custom' && (
-                <div className="pl-12 pr-4 pb-2 space-y-2 fade-in">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1">
-                      <label className="text-xs font-medium text-gray-600 dark:text-gray-300">開始日</label>
-                      <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700" />
+        {step === 'initial' ? (
+          <>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 text-center">メールで記録を送信</h3>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 text-center">送信する記録の期間を選択してください。</p>
+            
+            <div className="mt-6 text-left space-y-2 max-h-64 overflow-y-auto pr-2">
+              {ranges.map(r => (
+                <div key={r.value}>
+                  <label className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="export-range" 
+                      value={r.value}
+                      checked={range === r.value}
+                      onChange={() => setRange(r.value)}
+                      className="h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300"
+                    />
+                    <span className="text-base text-gray-700 dark:text-gray-200 font-medium">{r.label}</span>
+                  </label>
+                  {range === 'custom' && r.value === 'custom' && (
+                    <div className="pl-12 pr-4 pb-2 space-y-2 fade-in">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <label className="text-xs font-medium text-gray-600 dark:text-gray-300">開始日</label>
+                          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700" />
+                        </div>
+                         <span className="pt-5 text-gray-500 dark:text-gray-400">～</span>
+                        <div className="flex-1">
+                          <label className="text-xs font-medium text-gray-600 dark:text-gray-300">終了日</label>
+                          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700" />
+                        </div>
+                      </div>
                     </div>
-                     <span className="pt-5 text-gray-500 dark:text-gray-400">～</span>
-                    <div className="flex-1">
-                      <label className="text-xs font-medium text-gray-600 dark:text-gray-300">終了日</label>
-                      <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700" />
-                    </div>
-                  </div>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
-          ))}
-        </div>
 
-        <div className="mt-6 flex flex-col gap-3">
-          <button onClick={handleExportClick} className="w-full bg-green-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-700 transition-colors inline-flex items-center justify-center gap-2">
-            {mode === 'email' ? <PaperPlaneIcon className="h-5 w-5" /> : <ExportIcon className="h-5 w-5" />}
-            <span>{texts.button}</span>
-          </button>
-          <button onClick={onClose} className="w-full text-gray-600 dark:text-gray-300 font-medium py-2.5 px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm">
-            キャンセル
-          </button>
-        </div>
+            <div className="mt-6 flex flex-col gap-3">
+              <button onClick={handleExportClick} className="w-full bg-green-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-700 transition-colors inline-flex items-center justify-center gap-2">
+                <ExportIcon className="h-5 w-5" />
+                <span>CSVをダウンロード</span>
+              </button>
+              <button onClick={handleCloseAndReset} className="w-full text-gray-600 dark:text-gray-300 font-medium py-2.5 px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm">
+                キャンセル
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 text-center">メールアプリを起動</h3>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 text-center">
+              CSVファイルのダウンロードを開始しました。ダウンロードが完了したら、下のボタンを押してメールアプリを起動し、ファイルを添付してください。
+            </p>
+            <div className="mt-6 flex flex-col gap-3">
+              <button onClick={handleLaunchMailerClick} className="w-full bg-green-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-700 transition-colors inline-flex items-center justify-center gap-2">
+                <PaperPlaneIcon className="h-5 w-5" />
+                <span>メールアプリを起動する</span>
+              </button>
+              <button onClick={handleCloseAndReset} className="w-full text-gray-600 dark:text-gray-300 font-medium py-2.5 px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm">
+                閉じる
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
 };
+
 
 export const ImageSourceModal: React.FC<{
   isOpen: boolean;

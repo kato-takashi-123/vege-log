@@ -310,10 +310,10 @@ export const App = () => {
     showToast("すべての記録をCSVでエクスポートしました。");
   };
 
-  const handleEmailExport = (range: string, startDateStr?: string, endDateStr?: string) => {
+  const handleCsvDownloadForEmail = (range: string, startDateStr?: string, endDateStr?: string): string | null => {
     if (records.length === 0) {
-        alert("エクスポート対象の記録がありません。");
-        return;
+      alert("エクスポート対象の記録がありません。");
+      return null;
     }
 
     const today = new Date();
@@ -324,82 +324,82 @@ export const App = () => {
     let filteredRecords: CultivationRecord[];
 
     switch (range) {
-        case 'today':
-            startDate = today;
-            endDate = today;
-            break;
-        case 'thisWeek': {
-            const dayOfWeek = today.getDay(); // 0 = Sunday
-            const weekStartsOn = settings.startOfWeek === 'sunday' ? 0 : 1;
-            startDate = new Date(today);
-            const diff = (dayOfWeek - weekStartsOn + 7) % 7;
-            startDate.setDate(startDate.getDate() - diff);
-            endDate = new Date(startDate);
-            endDate.setDate(endDate.getDate() + 6);
-            break;
+      case 'today':
+        startDate = today;
+        endDate = today;
+        break;
+      case 'thisWeek': {
+        const dayOfWeek = today.getDay();
+        const weekStartsOn = settings.startOfWeek === 'sunday' ? 0 : 1;
+        startDate = new Date(today);
+        const diff = (dayOfWeek - weekStartsOn + 7) % 7;
+        startDate.setDate(startDate.getDate() - diff);
+        endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 6);
+        break;
+      }
+      case 'thisMonth':
+        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        break;
+      case 'lastMonth':
+        startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+        break;
+      case 'custom':
+        if (!startDateStr || !endDateStr) {
+          alert("期間を指定してください。");
+          return null;
         }
-        case 'thisMonth':
-            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-            break;
-        case 'lastMonth':
-            startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-            endDate = new Date(today.getFullYear(), today.getMonth(), 0);
-            break;
-        case 'custom':
-            if (!startDateStr || !endDateStr) {
-                alert("期間を指定してください。");
-                return;
-            }
-            startDate = parseDateString(startDateStr);
-            endDate = parseDateString(endDateStr);
-            break;
-        case 'all':
-        default:
-            filteredRecords = records;
-            break;
+        startDate = parseDateString(startDateStr);
+        endDate = parseDateString(endDateStr);
+        break;
+      case 'all':
+      default:
+        filteredRecords = records;
+        break;
     }
 
     if (range !== 'all') {
-         filteredRecords = records.filter(r => {
-            const recordDate = parseDateString(r.date);
-            return recordDate >= startDate && recordDate <= endDate;
-        });
-    }
-    
-    if (filteredRecords.length === 0) {
-        alert("選択された期間にエクスポート対象の記録がありません。");
-        return;
+      filteredRecords = records.filter(r => {
+        const recordDate = parseDateString(r.date);
+        return recordDate >= startDate && recordDate <= endDate;
+      });
     }
 
-    // 1. Generate CSV and trigger download
+    if (filteredRecords.length === 0) {
+      alert("選択された期間にエクスポート対象の記録がありません。");
+      return null;
+    }
+
     const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(exportRecordsToCsv(filteredRecords));
     const link = document.createElement("a");
-    link.setAttribute("href", csvContent);
     const fileName = `veggielog_export_${toISODateString(new Date())}.csv`;
+    link.setAttribute("href", csvContent);
     link.setAttribute("download", fileName);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
-    // 2. Prepare and open mailto link
+    showToast('CSVファイルのダウンロードを開始しました。');
+    return fileName;
+  };
+
+  const handleLaunchMailer = (fileName: string) => {
     const teamName = settings.teamName || 'ベジログ';
     const subject = `${teamName} 栽培記録のエクスポート (${toISODateString(new Date())})`;
     const body = `こんにちは。\n\n${teamName}の栽培記録をお送りします。\n\n先ほどダウンロードされたCSVファイル（${fileName}）を、このメールに添付して送信してください。`;
     const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
-    // Give a slight delay for the download to start before opening the mail client.
-    setTimeout(() => {
-        try {
-            window.location.href = mailtoLink;
-        } catch (e) {
-            console.error("Failed to open mail client", e);
-            alert("メールクライアントの起動に失敗しました。");
-        }
-    }, 500);
-    
-    setExportModal({isOpen: false, mode: 'email'});
-    showToast('ファイルをダウンロードし、メールアプリを起動します。');
+    try {
+      window.location.href = mailtoLink;
+    } catch (e) {
+      console.error("Failed to open mail client", e);
+      alert("メールクライアントの起動に失敗しました。");
+    }
+
+    setExportModal({ isOpen: false, mode: 'email' });
+    showToast('メールアプリを起動します。');
   };
 
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -579,7 +579,8 @@ export const App = () => {
         isOpen={exportModal.isOpen}
         mode={exportModal.mode}
         onClose={() => setExportModal(prev => ({...prev, isOpen: false}))}
-        onExport={handleEmailExport}
+        onExport={handleCsvDownloadForEmail}
+        onLaunchMailer={handleLaunchMailer}
       />
       
       <ApiErrorModal
