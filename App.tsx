@@ -6,6 +6,7 @@ import { ApiRateLimitError } from './services/geminiService';
 import { SETTINGS_KEY } from './lib/constants';
 import { idbGet, idbSet, idbClear } from './lib/indexedDB';
 import { toISODateString, parseDateString, exportRecordsToCsv, importRecordsFromCsv } from './lib/utils';
+import { useServiceWorker } from './hooks/useServiceWorker';
 
 // Import pages
 import LoginPage from './pages/LoginPage';
@@ -26,7 +27,7 @@ import SettingsPage from './pages/SettingsPage';
 // Import components
 import { PageHeader } from './components/PageHeader';
 import { HamburgerMenu } from './components/HamburgerMenu';
-import { Toast } from './components/common/Toast';
+import { Toast, UpdateAvailableToast } from './components/common/Toast';
 import { ApiErrorModal, SaveConfirmationModal, ConfirmationModal, ConfirmationModalProps, ExportModal, CameraActionModal } from './components/modals';
 import { PaperPlaneIcon, CalendarIcon, ToolsIcon, CameraIcon, HomeIcon, SaveIcon, ObservationIcon } from './components/Icons';
 import { FloatingSaveButton } from './components/common/FloatingSaveButton';
@@ -65,6 +66,8 @@ export const App = () => {
   
   const [isLoading, setIsLoading] = useState(true);
   const debouncedSaveRef = useRef<number | null>(null);
+  
+  const { updateAvailable, applyUpdate, checkForUpdate } = useServiceWorker();
 
   useEffect(() => {
     try {
@@ -535,8 +538,19 @@ export const App = () => {
       )}
       
       {toastMessage && <Toast message={toastMessage} />}
+      {updateAvailable && <UpdateAvailableToast onUpdate={applyUpdate} />}
 
-      <HamburgerMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} setPage={changePage} activePage={page} onLogout={handleLogout}/>
+      <HamburgerMenu
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        setPage={changePage}
+        activePage={page}
+        onLogout={handleLogout}
+        updateAvailable={updateAvailable}
+        onUpdate={applyUpdate}
+        onCheckForUpdate={checkForUpdate}
+        showToast={showToast}
+      />
 
       <SaveConfirmationModal
         isOpen={saveModalOpen}

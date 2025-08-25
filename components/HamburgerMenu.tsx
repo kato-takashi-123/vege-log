@@ -1,5 +1,5 @@
 import React from 'react';
-import { HomeIcon, CalendarIcon, ToolsIcon, SettingsIcon, CloseIcon, LogoutIcon } from './Icons';
+import { HomeIcon, CalendarIcon, ToolsIcon, SettingsIcon, CloseIcon, LogoutIcon, CloudDownloadIcon } from './Icons';
 
 export const HamburgerMenu: React.FC<{
   isOpen: boolean;
@@ -7,7 +7,11 @@ export const HamburgerMenu: React.FC<{
   setPage: (page: string) => void;
   activePage: string;
   onLogout: () => void;
-}> = ({ isOpen, onClose, setPage, activePage, onLogout }) => {
+  updateAvailable: boolean;
+  onUpdate: () => void;
+  onCheckForUpdate: () => void;
+  showToast: (message: string) => void;
+}> = ({ isOpen, onClose, setPage, activePage, onLogout, updateAvailable, onUpdate, onCheckForUpdate, showToast }) => {
   const menuItems = [
     { name: 'DASHBOARD', label: 'ホーム', icon: HomeIcon },
     { name: 'HISTORY', label: 'カレンダー', icon: CalendarIcon },
@@ -27,6 +31,16 @@ export const HamburgerMenu: React.FC<{
   };
   
   const currentTab = getActiveTab(activePage);
+
+  const handleUpdateClick = () => {
+    if (updateAvailable) {
+      onUpdate();
+    } else {
+      onCheckForUpdate();
+      showToast("更新を確認しています...");
+    }
+    onClose();
+  };
 
   return (
     <div className={`fixed inset-0 z-40 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
@@ -55,6 +69,16 @@ export const HamburgerMenu: React.FC<{
                   </li>
                 );
               })}
+               <li>
+                <button
+                  onClick={handleUpdateClick}
+                  className={`w-full flex items-center gap-4 p-4 rounded-lg text-left text-base transition-colors relative ${updateAvailable ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 font-semibold' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                >
+                  <CloudDownloadIcon className={`h-6 w-6 ${updateAvailable ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
+                  <span>{updateAvailable ? 'アップデートを適用' : 'アプリを更新'}</span>
+                  {updateAvailable && <span className="absolute top-3 right-3 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-gray-900"></span>}
+                </button>
+              </li>
             </ul>
           </nav>
           <div className="p-2 border-t dark:border-gray-700 mt-2">
