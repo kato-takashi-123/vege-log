@@ -94,16 +94,19 @@ const WeatherPage: React.FC<PageProps> = ({ settings }) => {
     const colWidth = 64; // in pixels
     const rowHeaderWidth = 68; // in pixels
 
+    const tempChartHeight = 60;
+
     const { points, pathData } = useMemo(() => {
         if (hourlyData.length === 0) return { points: [], pathData: '' };
         const temps = hourlyData.map(h => h.temperature);
         const maxTemp = Math.ceil(Math.max(...temps));
         const minTemp = Math.floor(Math.min(...temps));
         const tempRange = maxTemp - minTemp || 1;
-        const tempChartHeight = 40;
+        const paddingY = 5;
+        const chartAreaHeight = tempChartHeight - 2 * paddingY;
 
         const pointsArr = hourlyData.map((hour, i) => {
-            const y = tempChartHeight - (((hour.temperature - minTemp) / tempRange) * tempChartHeight);
+            const y = (tempChartHeight - paddingY) - (((hour.temperature - minTemp) / tempRange) * chartAreaHeight);
             return {x: i * colWidth + colWidth / 2, y };
         });
         
@@ -191,8 +194,8 @@ const WeatherPage: React.FC<PageProps> = ({ settings }) => {
 
                              {/* Temperature Chart Row */}
                             <RowHeader>気温</RowHeader>
-                            <div className="relative h-10 bg-white dark:bg-gray-800" style={{ gridColumn: `2 / span ${numHours}` }}>
-                                <svg width={numHours * colWidth} height={40} className="absolute left-0 top-0 z-10 pointer-events-none">
+                            <div className="relative bg-white dark:bg-gray-800" style={{ gridColumn: `2 / span ${numHours}`, height: `${tempChartHeight}px` }}>
+                                <svg width={numHours * colWidth} height={tempChartHeight} className="absolute left-0 top-0 z-10 pointer-events-none">
                                     <path d={pathData} fill="none" stroke="#f97316" strokeWidth="2" />
                                     {points.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="3" fill="#f97316" />)}
                                 </svg>

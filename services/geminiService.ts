@@ -1,7 +1,7 @@
 
 
 import { GoogleGenAI, Type, GenerateContentResponse, GenerateImagesResponse } from "@google/genai";
-import { WeatherInfo, PestInfo, VegetableInfo, PlantDiagnosis, AppSettings } from '../types';
+import { WeatherInfo, PestInfo, VegetableInfo, PlantDiagnosis, AppSettings, PlantingRecommendation } from '../types';
 
 if (!process.env.API_KEY) {
   console.warn("API_KEY environment variable not set. Gemini features will not work.");
@@ -436,6 +436,60 @@ export const searchCommonPestsForCrop = async (cropName: string): Promise<string
       console.error("Failed to parse pests JSON:", jsonText, e);
       return [];
     }
+};
+
+export const getPlantingRecommendations = async (months: number[], difficulty: 'low' | 'medium' | 'high', vegetableList: string[]): Promise<PlantingRecommendation[]> => {
+  if (months.length === 0) throw new Error("月を1つ以上選択してください。");
+
+  const difficultyMap = {
+    'low': '低い (A)',
+    'medium': '普通 (B)',
+    'high': '高い (C)'
+  };
+  const difficultyText = difficultyMap[difficulty];
+  const monthsText = months.join('月, ') + '月';
+
+  const schema = {
+    type: Type.OBJECT,
+    properties: {
+      recommendations: {
+        type: Type.ARRAY,
+        description: 'A list of recommended vegetables.',
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            vegetableName: { type: Type.STRING, description: '野菜の名前。' },
+            reason: { type: Type.STRING, description: 'この野菜がおすすめな理由を簡潔に説明してください。' },
+            plantingMonths: { type: Type.STRING, description: '作付けに適した時期（例: 3月～5月）。' },
+          },
+          required: ['vegetableName', 'reason', 'plantingMonths']
+        }
+      }
+    },
+    required: ['recommendations']
+  };
+
+  const prompt = `以下の野菜リストの中から、作付け時期が「${monthsText}」で、栽培難易度が「${difficultyText}」の野菜を5つ提案してください。特に、その時期に「播種」するのに最適なものを選んでください。パミスを使った栽培を前提としてください。\n\n選択肢となる野菜リスト: ${vegetableList.join('、')}`;
+
+  const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: prompt,
+    config: {
+      systemInstruction: "あなたは家庭菜園のエキスパートです。ユーザーの指定した条件に基づいて、提供された野菜リストの中から最適なものを提案します。回答は必ず指定されたJSONスキーマに従ってください。「土」や「土壌」という言葉は常に「パミス」に置き換えてください。",
+      temperature: 0.5,
+      responseMimeType: "application/json",
+      responseSchema: schema,
+    }
+  }));
+
+  try {
+    const jsonText = response.text.trim();
+    const parsed = JSON.parse(jsonText);
+    return parsed.recommendations as PlantingRecommendation[];
+  } catch (parseError) {
+    console.error("Failed to parse Gemini response as JSON for planting recommendations:", response.text, parseError);
+    throw new Error("AIからの応答が不正な形式でした。");
+  }
 };
 
 export const searchGardeningTerm = async (query: string): Promise<AiSearchResult> => {

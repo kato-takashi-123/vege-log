@@ -1,5 +1,5 @@
 import React from 'react';
-import { CultivationRecord } from '../types';
+import { CultivationRecord, WorkType, CropStage, ObservationStatus, FertilizerDetail } from '../types';
 import { WORK_TYPE_DETAILS, CROP_STAGE_DETAILS, OBSERVATION_STATUS_DETAILS } from './constants';
 
 const JP_HOLIDAYS: Record<string, string> = {
@@ -80,13 +80,100 @@ export const resizeImage = (file: File, maxPixels: number): Promise<string> => {
   });
 };
 
+const parseCsvRow = (row: string): string[] => {
+    const fields = [];
+    let currentField = '';
+    let inQuotes = false;
+    for (let i = 0; i < row.length; i++) {
+        const char = row[i];
+        if (char === '"') {
+            if (inQuotes && i + 1 < row.length && row[i+1] === '"') {
+                currentField += '"';
+                i++;
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (char === ',' && !inQuotes) {
+            fields.push(currentField);
+            currentField = '';
+        } else {
+            currentField += char;
+        }
+    }
+    fields.push(currentField);
+    return fields;
+};
+
+export const importRecordsFromCsv = (csvText: string): CultivationRecord[] => {
+    const lines = csvText.trim().replace(/\r\n/g, '\n').split('\n');
+    if (lines.length < 2) return [];
+
+    const headers = lines.shift()!.trim().split(',');
+    const expectedHeaders = [
+        'ID', '日付', '作物名', '栽培レーン', '作業種類', '作物の状況', 
+        '観察記録', '病害虫詳細', 'メモ', 'M-plus 1号 倍率', 'M-plus 2号 倍率'
+    ];
+    
+    if (expectedHeaders.some((h, i) => headers[i] !== h)) {
+        console.error('CSV Headers mismatch. Expected:', expectedHeaders, 'Got:', headers);
+        throw new Error("CSVのヘッダー形式が正しくありません。");
+    }
+
+    const headerMap = headers.reduce((acc, header, index) => {
+        acc[header] = index;
+        return acc;
+    }, {} as Record<string, number>);
+
+    const WORK_TYPE_REVERSE_MAP = Object.fromEntries(Object.entries(WORK_TYPE_DETAILS).map(([key, { label }]) => [label, key as WorkType]));
+    const CROP_STAGE_REVERSE_MAP = Object.fromEntries(Object.entries(CROP_STAGE_DETAILS).map(([key, { label }]) => [label, key as CropStage]));
+    const OBSERVATION_STATUS_REVERSE_MAP = Object.fromEntries(Object.entries(OBSERVATION_STATUS_DETAILS).map(([key, { label }]) => [label, key as ObservationStatus]));
+
+    return lines.filter(line => line.trim()).map(line => {
+        const values = parseCsvRow(line.trim());
+        const getVal = (header: string) => values[headerMap[header]] || '';
+        
+        const fertilizingDetails: FertilizerDetail[] = [];
+        const mPlus1Dilution = parseInt(getVal('M-plus 1号 倍率'), 10);
+        if (!isNaN(mPlus1Dilution) && mPlus1Dilution > 0) {
+            fertilizingDetails.push({ fertilizerType: 'M-Plus-1', dilution: mPlus1Dilution });
+        }
+        const mPlus2Dilution = parseInt(getVal('M-plus 2号 倍率'), 10);
+        if (!isNaN(mPlus2Dilution) && mPlus2Dilution > 0) {
+            fertilizingDetails.push({ fertilizerType: 'M-Plus-2', dilution: mPlus2Dilution });
+        }
+
+        const record: CultivationRecord = {
+            id: getVal('ID'),
+            date: getVal('日付'),
+            cropName: getVal('作物名'),
+            cultivationLane: getVal('栽培レーン'),
+            workTypes: getVal('作業種類') ? getVal('作業種類').split(', ').map(l => WORK_TYPE_REVERSE_MAP[l]).filter(Boolean) : [],
+            cropStages: getVal('作物の状況') ? getVal('作物の状況').split(', ').map(l => CROP_STAGE_REVERSE_MAP[l]).filter(Boolean) : [],
+            observationStatus: getVal('観察記録') ? getVal('観察記録').split(', ').map(l => OBSERVATION_STATUS_REVERSE_MAP[l]).filter(Boolean) : [],
+            pestDetails: getVal('病害虫詳細') ? getVal('病害虫詳細').split(', ') : [],
+            memo: getVal('メモ'),
+            fertilizingDetails: fertilizingDetails.length > 0 ? fertilizingDetails : undefined,
+            photoBase64: '',
+            seedPackagePhotoFront: '',
+            seedPackagePhotoBack: '',
+        };
+        return record;
+    });
+};
+
 export const exportRecordsToCsv = (records: CultivationRecord[]): string => {
     const headers = [
         'ID', '日付', '作物名', '栽培レーン', '作業種類', '作物の状況', 
         '観察記録', '病害虫詳細', 'メモ', 'M-plus 1号 倍率', 'M-plus 2号 倍率'
     ];
+    
+    const sortedRecords = [...records].sort((a, b) => {
+        const dateComparison = parseDateString(b.date).getTime() - parseDateString(a.date).getTime();
+        if (dateComparison !== 0) return dateComparison;
+        return a.cultivationLane.localeCompare(b.cultivationLane, undefined, { numeric: true });
+    });
 
-    const rows = records.map(r => {
+    const rows = sortedRecords.map(r => {
         const details = Array.isArray(r.fertilizingDetails) 
             ? r.fertilizingDetails 
             : r.fertilizingDetails ? [r.fertilizingDetails] : [];

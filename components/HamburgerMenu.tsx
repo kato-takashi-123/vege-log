@@ -21,7 +21,7 @@ export const HamburgerMenu: React.FC<{
   };
   
   const getActiveTab = (page: string) => {
-    if (['CALCULATOR', 'RECIPE_SEARCH', 'VEGETABLE_SEARCH', 'PEST_SEARCH', 'TERM_SEARCH', 'WEATHER', 'PLANT_DIAGNOSIS'].includes(page)) return 'TOOLS';
+    if (['CALCULATOR', 'RECIPE_SEARCH', 'VEGETABLE_SEARCH', 'PEST_SEARCH', 'TERM_SEARCH', 'WEATHER', 'PLANT_DIAGNOSIS', 'PLANTING_RECOMMENDATION_SEARCH'].includes(page)) return 'TOOLS';
     if (menuItems.some(item => item.name === page)) return page;
     return 'DASHBOARD'; // Fallback
   };

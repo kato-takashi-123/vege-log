@@ -148,6 +148,12 @@ export interface PlantDiagnosis {
   };
 }
 
+export interface PlantingRecommendation {
+  vegetableName: string;
+  reason: string;
+  plantingMonths: string;
+}
+
 export type AppSettings = {
   teamName: string;
   startOfWeek: 'sunday' | 'monday';

@@ -104,14 +104,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange,
         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow space-y-4">
             <p className="text-xs text-gray-500">記録データはブラウザ内に自動で保存されます。以下の機能で、手動でのバックアップ（エクスポート）と復元（インポート）が可能です。</p>
             <div className="space-y-3">
-              <input type="file" accept=".json" ref={importInputRef} onChange={onImport} className="hidden" />
+              <input type="file" accept=".csv" ref={importInputRef} onChange={onImport} className="hidden" />
               <button onClick={() => importInputRef.current?.click()} className="w-full flex items-center justify-center gap-2 bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 font-bold py-2.5 px-4 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors">
                 <FileImportIcon className="h-5 w-5"/>
-                <span>記録をインポート (JSON)</span>
+                <span>記録をインポート (CSV)</span>
               </button>
               <button onClick={onExport} className="w-full flex items-center justify-center gap-2 bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 font-bold py-2.5 px-4 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors">
                 <ExportIcon className="h-5 w-5"/>
-                <span>すべての記録をエクスポート (JSON)</span>
+                <span>すべての記録をエクスポート (CSV)</span>
               </button>
               <button onClick={onDeleteAllData} className="w-full flex items-center justify-center gap-2 bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 font-bold py-2.5 px-4 rounded-lg hover:bg-red-200 dark:hover:bg-red-800/50 transition-colors">
                 <TrashIcon className="h-5 w-5"/>

@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   ObservationIcon, CalculatorIcon, VegetableSearchIcon, PestSearchIcon,
-  DictionaryIcon, WeatherIcon, RecipeIcon
+  DictionaryIcon, WeatherIcon, RecipeIcon, PlantingIcon
 } from '../components/Icons';
 
 const ToolsPage: React.FC<{ setPage: (page: string) => void }> = ({ setPage }) => {
@@ -9,6 +9,7 @@ const ToolsPage: React.FC<{ setPage: (page: string) => void }> = ({ setPage }) =
     { name: 'AI作物診断', icon: ObservationIcon, page: 'PLANT_DIAGNOSIS' },
     { name: '液肥計算機', icon: CalculatorIcon, page: 'CALCULATOR' },
     { name: '野菜の育て方検索', icon: VegetableSearchIcon, page: 'VEGETABLE_SEARCH' },
+    { name: '作付けおすすめ検索', icon: PlantingIcon, page: 'PLANTING_RECOMMENDATION_SEARCH' },
     { name: '病害虫・症状検索', icon: PestSearchIcon, page: 'PEST_SEARCH' },
     { name: '園芸用語辞典', icon: DictionaryIcon, page: 'TERM_SEARCH' },
     { name: '天気予報', icon: WeatherIcon, page: 'WEATHER' },

@@ -5,7 +5,7 @@ import { CultivationRecord, AppSettings, ApiCallHandler } from './types';
 import { ApiRateLimitError } from './services/geminiService';
 import { SETTINGS_KEY } from './lib/constants';
 import { idbGet, idbSet, idbClear } from './lib/indexedDB';
-import { toISODateString, parseDateString, exportRecordsToCsv } from './lib/utils';
+import { toISODateString, parseDateString, exportRecordsToCsv, importRecordsFromCsv } from './lib/utils';
 
 // Import pages
 import LoginPage from './pages/LoginPage';
@@ -20,6 +20,7 @@ import PestSearchPage from './pages/PestSearchPage';
 import TermSearchPage from './pages/TermSearchPage';
 import WeatherPage from './pages/WeatherPage';
 import PlantDiagnosisPage from './pages/PlantDiagnosisPage';
+import PlantingRecommendationSearchPage from './pages/PlantingRecommendationSearchPage';
 import SettingsPage from './pages/SettingsPage';
 
 // Import components
@@ -32,7 +33,7 @@ import { FloatingSaveButton } from './components/common/FloatingSaveButton';
 
 
 export const App = () => {
-  const [page, setPage] = useState<'LOGIN' | 'DASHBOARD' | 'RECORD' | 'HISTORY' | 'TOOLS' | 'CALCULATOR' | 'RECIPE_SEARCH' | 'VEGETABLE_SEARCH' | 'PEST_SEARCH' | 'TERM_SEARCH' | 'WEATHER' | 'PLANT_DIAGNOSIS' | 'SETTINGS'>('LOGIN');
+  const [page, setPage] = useState<'LOGIN' | 'DASHBOARD' | 'RECORD' | 'HISTORY' | 'TOOLS' | 'CALCULATOR' | 'RECIPE_SEARCH' | 'VEGETABLE_SEARCH' | 'PEST_SEARCH' | 'TERM_SEARCH' | 'WEATHER' | 'PLANT_DIAGNOSIS' | 'PLANTING_RECOMMENDATION_SEARCH' | 'SETTINGS'>('LOGIN');
   const [pageParams, setPageParams] = useState<any>({});
   const [records, setRecords] = useState<CultivationRecord[]>([]);
   const [settings, setSettings] = useState<AppSettings>({
@@ -244,7 +245,7 @@ export const App = () => {
 
   const onBack = () => {
     let targetPage = 'DASHBOARD';
-    if (['CALCULATOR', 'RECIPE_SEARCH', 'VEGETABLE_SEARCH', 'PEST_SEARCH', 'TERM_SEARCH', 'WEATHER', 'PLANT_DIAGNOSIS'].includes(page)) {
+    if (['CALCULATOR', 'RECIPE_SEARCH', 'VEGETABLE_SEARCH', 'PEST_SEARCH', 'TERM_SEARCH', 'WEATHER', 'PLANT_DIAGNOSIS', 'PLANTING_RECOMMENDATION_SEARCH'].includes(page)) {
       targetPage = 'TOOLS';
     }
     changePage(targetPage);
@@ -295,15 +296,15 @@ export const App = () => {
         return;
     }
 
-    const jsonContent = "data:application/json;charset=utf-8," + encodeURIComponent(JSON.stringify(records, null, 2));
+    const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(exportRecordsToCsv(records));
     const link = document.createElement("a");
-    link.setAttribute("href", jsonContent);
-    const fileName = `veggielog_export_${toISODateString(new Date())}.json`;
+    link.setAttribute("href", csvContent);
+    const fileName = `veggielog_export_${toISODateString(new Date())}.csv`;
     link.setAttribute("download", fileName);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast("すべての記録をエクスポートしました。");
+    showToast("すべての記録をCSVでエクスポートしました。");
   };
 
   const handleEmailExport = (range: string, startDateStr?: string, endDateStr?: string) => {
@@ -394,9 +395,14 @@ export const App = () => {
     const reader = new FileReader();
     reader.onload = (e) => {
         try {
-            const importedRecords: CultivationRecord[] = JSON.parse(e.target?.result as string);
-            if (!Array.isArray(importedRecords) || (importedRecords.length > 0 && !importedRecords[0].id)) {
+            const csvText = e.target?.result as string;
+            const importedRecords: CultivationRecord[] = importRecordsFromCsv(csvText);
+            
+            if (!Array.isArray(importedRecords)) {
                 throw new Error("Invalid file format");
+            }
+            if (importedRecords.length > 0 && (!importedRecords[0].id || !importedRecords[0].date)) {
+                 throw new Error("Invalid CSV format");
             }
 
             setConfirmationModal({
@@ -413,8 +419,8 @@ export const App = () => {
                 onCancel: () => setConfirmationModal(s => ({...s, isOpen: false})),
             });
 
-        } catch (err) {
-            alert("ファイルの読み込みに失敗しました。JSON形式が正しくない可能性があります。");
+        } catch (err: any) {
+            alert(`ファイルの読み込みに失敗しました。CSV形式が正しくない可能性があります。\nエラー: ${err.message}`);
         }
     };
     reader.readAsText(file);
@@ -472,6 +478,7 @@ export const App = () => {
     TERM_SEARCH: { comp: <TermSearchPage settings={settings} onSettingsChange={handleSettingsChange} handleApiCall={handleApiCall} records={records} pageParams={pageParams} />, title: '園芸用語辞典', showBack: true },
     WEATHER: { comp: <WeatherPage settings={settings} onSettingsChange={handleSettingsChange} handleApiCall={handleApiCall} records={records} pageParams={pageParams} />, title: '天気予報', showBack: true },
     PLANT_DIAGNOSIS: { comp: <PlantDiagnosisPage setPage={changePage} settings={settings} onSettingsChange={handleSettingsChange} handleApiCall={handleApiCall} records={records} pageParams={pageParams} />, title: 'AI作物診断', showBack: true },
+    PLANTING_RECOMMENDATION_SEARCH: { comp: <PlantingRecommendationSearchPage settings={settings} onSettingsChange={handleSettingsChange} handleApiCall={handleApiCall} records={records} pageParams={pageParams} />, title: '作付けおすすめ検索', showBack: true },
     SETTINGS: { comp: <SettingsPage settings={settings} onSettingsChange={handleSettingsChange} onLogout={handleLogout} onExport={handleExport} onImport={handleImport} onDeleteAllData={handleDeleteAllData} />, title: '設定', showBack: false },
   };
 
@@ -503,7 +510,7 @@ export const App = () => {
           
           <div className="w-full h-full"></div>
 
-          <button onClick={() => changePage('TOOLS')} className={`flex flex-col items-center justify-center w-full h-full transition-colors ${['TOOLS', 'CALCULATOR', 'RECIPE_SEARCH', 'VEGETABLE_SEARCH', 'PEST_SEARCH', 'TERM_SEARCH', 'WEATHER'].includes(page) ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+          <button onClick={() => changePage('TOOLS')} className={`flex flex-col items-center justify-center w-full h-full transition-colors ${['TOOLS', 'CALCULATOR', 'RECIPE_SEARCH', 'VEGETABLE_SEARCH', 'PEST_SEARCH', 'TERM_SEARCH', 'WEATHER', 'PLANT_DIAGNOSIS', 'PLANTING_RECOMMENDATION_SEARCH'].includes(page) ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
             <ToolsIcon className="h-6 w-6" />
             <span className="text-xs">ツール</span>
           </button>
